@@ -1,0 +1,87 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+context: |
+  Domain: Internal Expense Management System. Employees submit expenses with a mandatory
+  receipt; Managers approve/reject; a single Compliance Officer additionally reviews
+  approved Client Entertainment expenses; Finance reimburses and reports. Full rules in
+  docs/FRS.md, full design in docs/SDS.md — both are authoritative and must not be
+  contradicted by any proposal.
+
+  Tech stack:
+    - Backend: ASP.NET Core 9 Web API, C# 13, Entity Framework Core 9, SQL Server 2022.
+    - Frontend: React 19 + TypeScript + Vite, shadcn/ui, Tailwind CSS, React Router.
+    - Frontend state: TanStack Query (server state), Zustand (local UI state only),
+      React Hook Form + Zod (forms/client validation).
+    - Auth: JWT access tokens (15 min, HS256, `sub` claim only) + server-persisted,
+      SHA-256-hashed, rotating refresh tokens (7 day). Passwords hashed with BCrypt.
+    - Files: receipts stored on server filesystem; DB stores metadata + path only.
+    - Reports: ClosedXML for .xlsx generation.
+    - Repo layout: pnpm monorepo with frontend/ and backend/ workspaces; backend follows
+      Api -> Application -> Domain -> Infrastructure -> Shared layering.
+    - Testing: xUnit (+ WebApplicationFactory for integration) on the backend, Vitest +
+      React Testing Library on the frontend, Playwright for end-to-end.
+
+  Architectural constraints (non-negotiable, from SDS section 1 and 4-9):
+    - Backend is the single source of truth for all business rules; client-side
+      validation is UX-only and never authoritative.
+    - Frontend and backend communicate exclusively over REST/JSON; no GraphQL, no SSR.
+    - All expense workflow status transitions are backend-validated and only reachable
+      via dedicated action endpoints (submit/approve/reject/compliance-approve/
+      compliance-reject/reimburse/cancel) — never a generic status field update.
+    - Authorization is enforced entirely server-side and re-derived from the Employee
+      record on every request; JWTs carry no role/permission claims.
+    - Database schema changes go exclusively through EF Core migrations; cascade delete
+      is disabled for business entities.
+    - State-changing operations run inside a DB transaction; notifications are fired
+      only after commit and their failure must never roll back the transaction.
+    - Employee data is seeded from CSV and read-only thereafter — no Employee CRUD APIs.
+    - Only 7 expense categories exist (Travel, Hotel, Meals, Office Supplies, Client
+      Entertainment, Training, Other); only Client Entertainment uses the Compliance
+      Approved workflow step. Categories and workflow states are closed sets.
+    - Out of scope, do not implement: real email/SMTP delivery, live OTP delivery to
+      real inboxes, multiple receipt attachments, payment processing, extra categories.
+
+  Team conventions:
+    - Every ticket has an ID (ET0xx) defined in docs/TICKETS.md, built strictly in the
+      order listed there; branch names are `ticket/<ticket-id>-<kebab-description>`.
+    - Commits are Conventional Commits scoped to the ticket ID, e.g.
+      `feat(ET007): add expense creation and draft/submit workflow`.
+    - C#: PascalCase types/members, `I*` interfaces, `_camelCase` private fields,
+      constructor injection only, async/await with CancellationToken, one public class
+      per file. TypeScript: PascalCase components/types, camelCase functions/vars,
+      `use*` hooks, UPPER_SNAKE_CASE constants.
+    - All non-success API responses use the standard error envelope:
+      `{ "error": { "code", "message", "fields", "traceId" } }`; `fields` is populated
+      only for validation errors. Never log passwords, hashes, JWTs, refresh tokens, or
+      OTPs.
+
+  Quality standards:
+    - Every FRS requirement must be traceable to at least one automated test; every
+      defect fix requires a regression test.
+    - Business rules (BR-01 through BR-10) are tested once, on the backend; frontend
+      tests verify UI behavior, not business rules.
+    - Quality gate order before a ticket is considered done: lint -> build -> unit
+      tests -> integration tests -> (E2E for user-facing flows).
+    - Public APIs are documented via OpenAPI/Swagger as they are built.
+    - Auth endpoints (register, login, forgot-password, reset-password) are rate
+      limited and return generic errors that never reveal which field failed or
+      whether an account exists.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+rules:
+  proposal:
+    - Cite the specific docs/FRS.md section(s) and/or docs/SDS.md section(s) the
+      proposal implements or affects.
+    - Call out any deviation from docs/SDS.md as an explicit open architecture decision
+      requiring an ADR in docs/decisions/, not a silent implementation choice.
+    - State which ticket ID (docs/TICKETS.md) this proposal belongs to.
+  tasks:
+    - Split backend and frontend work into separate tasks even within one ticket.
+    - Every task touching a workflow transition, auth, or a business rule (BR-01..10)
+      must include its own test task, not a shared "add tests" catch-all.
+    - Do not schedule work for a ticket whose prerequisites (per docs/TICKETS.md build
+      order) are not yet Done.
