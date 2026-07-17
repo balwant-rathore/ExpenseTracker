@@ -1,0 +1,16 @@
+# Auto-detect text files and normalize to LF in the repository, overriding local
+# core.autocrlf on checkout so working-tree line endings match .editorconfig's
+# `end_of_line = lf` regardless of platform.
+* text=auto eol=lf
+
+# Explicitly binary — never touch line endings.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
