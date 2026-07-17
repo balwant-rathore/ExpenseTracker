@@ -40,25 +40,18 @@ Form + Zod installed and minimally configured. The skeleton SHALL contain no fea
 - **THEN** the build completes with zero TypeScript or bundler errors
 
 ### Requirement: EF Core Database Wiring
-The backend SHALL wire an `ApplicationDbContext` containing no `DbSet` members to SQL Server via
-EF Core 9, configured through a connection string that targets an existing SQL Server 2022
-instance (no bundled container/orchestration is provided), and SHALL include an empty
-`InitialCreate` migration whose sole purpose is to prove the EF Core → SQL Server pipeline works.
+The backend SHALL wire an `ApplicationDbContext` to SQL Server via EF Core 9, configured through a
+connection string that targets an existing SQL Server 2022 instance (no bundled
+container/orchestration is provided). Schema changes are applied exclusively through EF Core
+migrations, layered incrementally on top of the empty `InitialCreate` migration (ET001) as the
+business domain grows.
 
-#### Scenario: Migration applies cleanly
+#### Scenario: Migrations apply cleanly
 - **WHEN** a developer runs `dotnet ef database update` against a configured local SQL Server
   instance
-- **THEN** the `InitialCreate` migration applies without error and only the EF Core migrations
-  history table exists afterward — no business entity tables are created
-
-### Requirement: Seed Runner Scaffold
-The backend SHALL define a seed-runner abstraction (e.g. `ISeedRunner`) with a skeleton
-implementation that performs no data import in this ticket. The real `Employee` CSV import is
-out of scope here and is implemented by a later ticket against this abstraction.
-
-#### Scenario: Seed runner scaffold executes as a no-op
-- **WHEN** the application starts in the Development environment
-- **THEN** the seed-runner scaffold executes without throwing and performs no database writes
+- **THEN** all migrations up to the latest apply without error, and the database reflects the
+  currently modeled `ApplicationDbContext` schema — see the `domain-model` capability for the
+  specific business entity tables and constraints it defines
 
 ### Requirement: Baseline Dev Tooling
 The repository SHALL enforce formatting conventions via a root `.editorconfig` and SHALL run
@@ -79,4 +72,31 @@ commit message against the Conventional Commits format scoped to a ticket ID def
 #### Scenario: Commit-msg hook accepts a correctly-formatted message
 - **WHEN** a developer commits with a message of the form `feat(ET00X): summary`
 - **THEN** the `commit-msg` hook passes and the commit proceeds
+
+### Requirement: Employee CSV Seed Import
+The backend SHALL implement the `ISeedRunner` abstraction (defined in ET001) to perform the real
+`Employee` CSV import from `docs/EmployeeSeedData.csv` (`docs/FRS.md` §14, `docs/SDS.md` §3.11):
+insert `Employee` rows whose `EmployeeNumber` is not already present in the database (idempotent
+skip of existing records), then resolve each inserted row's `ManagerId` by looking up its CSV
+`Manager` value against imported `EmployeeNumber`s in a second pass. An unresolvable `Manager`
+reference SHALL be left `null` on that row and logged as a warning rather than failing the run.
+The import SHALL continue to execute automatically at Development startup.
+
+#### Scenario: Seed runner imports new Employee rows and skips existing ones
+- **WHEN** the application starts in the Development environment and `docs/EmployeeSeedData.csv`
+  contains rows whose EmployeeNumber does not yet exist in the database
+- **THEN** the seed runner inserts those rows, and any row whose EmployeeNumber already exists in
+  the database is left unmodified
+
+#### Scenario: Seed runner resolves manager references after insert
+- **WHEN** all CSV rows have been inserted and a row's Manager column references another row's
+  EmployeeNumber
+- **THEN** that row's ManagerId SHALL be set to the referenced Employee's EmployeeId, regardless
+  of the CSV's row order
+
+#### Scenario: Unresolvable manager reference is skipped with a warning
+- **WHEN** a row's Manager column references an EmployeeNumber that does not exist among the
+  imported rows
+- **THEN** that row's ManagerId SHALL remain null, a warning SHALL be logged, and the import
+  SHALL continue processing remaining rows
 
