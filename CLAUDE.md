@@ -1,8 +1,7 @@
 @AGENTS.md
 
 Claude Code-specific operating rules for this repo. Everything about the product, stack, and
-code conventions lives in `AGENTS.md` above — this file only covers how Claude Code itself should
-behave here.
+code conventions lives in `AGENTS.md` above — this file only covers how Claude Code itself should behave here.
 
 ## Permission Model
 
@@ -25,12 +24,16 @@ the user says otherwise for the session.
 
 ## Context Management
 
-- Treat ~60k tokens of conversation as the working budget for a single ticket/session. When
-approaching it: run /compact when context usage hits ~70%. Never wait for context to fill.
+- Treat ~60k tokens of conversation as the working budget for a single ticket/session. When approaching it: run `/compact` (exactly once) when context usage hits ~70%. Never wait for context to fill.
 - When single ticket approaches working budget twice - summarize current progress (what's done, what's left, open decisions) into a short note in the ticket's plan or a scratch file, then suggest the user run `/clear` (or start a fresh session) before continuing. 
-- Don't let unrelated ticket history accumulate in one context —
-one ticket per context where practical — run /clear between tickets. No exceptions.
+- Don't let unrelated ticket history accumulate in one context — one ticket per context where practical — run /clear between tickets. No exceptions.
 - For any task estimated to take longer than 45 minutes, delegate to a sub-agent. Never use a session-context.md file as a workaround.
+
+## Parallel Work
+- For any two tasks marked `[PARALLEL]` in `tasks.md`, use `/parallel` to spin up separate git worktrees. Frontend and backend work must run in separate worktrees, never interleaved in one working tree.
+
+## Code Library Validation
+- Always use Context7 to fetch current documentation before generating code that uses an external library — don't rely on training data for framework/library APIs.
 
 ## Thinking Depth
 
