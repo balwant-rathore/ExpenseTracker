@@ -10,7 +10,7 @@ pnpm dev                 # Vite dev server
 pnpm build                # production build
 pnpm test                 # Vitest component tests
 pnpm test -- --watch      # watch mode
-pnpm lint                 # ESLint
+pnpm lint                 # oxlint
 pnpm exec tsc --noEmit    # type-check only
 npx playwright test       # E2E (repo/workspace root)
 ```
