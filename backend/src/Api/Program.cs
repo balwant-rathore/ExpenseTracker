@@ -1,3 +1,5 @@
+using Api.Authentication;
+using Api.Extensions;
 using Domain.Repositories;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Repositories;
@@ -30,6 +32,8 @@ builder.Services.AddScoped<IEmployeeCsvParser, EmployeeCsvParser>();
 builder.Services.AddScoped<EmployeeSeedPlanner>();
 builder.Services.AddScoped<ISeedRunner, EmployeeCsvSeedRunner>();
 
+builder.Services.AddAuthFoundation(builder.Configuration);
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -44,8 +48,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseRateLimiter();
+
+app.UseAuthentication();
+app.UseMiddleware<EmployeeRoleResolutionMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
+
+public partial class Program;

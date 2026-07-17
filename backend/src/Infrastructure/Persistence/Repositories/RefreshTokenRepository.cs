@@ -15,4 +15,11 @@ public class RefreshTokenRepository : Repository<RefreshToken>, IRefreshTokenRep
         return await DbContext.RefreshTokens
             .FirstOrDefaultAsync(rt => rt.TokenHash == tokenHash, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<RefreshToken>> GetActiveByUserIdAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await DbContext.RefreshTokens
+            .Where(rt => rt.UserId == userId && rt.RevokedAt == null && rt.ExpiresAt > DateTime.UtcNow)
+            .ToListAsync(cancellationToken);
+    }
 }

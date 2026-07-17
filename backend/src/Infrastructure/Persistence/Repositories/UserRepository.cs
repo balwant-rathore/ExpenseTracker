@@ -15,4 +15,11 @@ public class UserRepository : Repository<User>, IUserRepository
         return await DbContext.Users
             .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail, cancellationToken);
     }
+
+    public async Task<User?> GetByIdWithEmployeeAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return await DbContext.Users
+            .Include(u => u.Employee)
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+    }
 }
