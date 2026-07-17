@@ -7,28 +7,28 @@ the ID itself (`ET-xxxx`) carries no meaning on its own; this file is the mappin
 Each row: ticket ID, one-line scope, the `docs/FRS.md` sections it implements, domain, status,
 linked GitHub issue
 
-| Ticket | Scope| FRS Sections | Domain | Status  | Issue |
-| ------ |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------- | ------- | ------------------- |
-| ET001   | Project bootstrap, pnpm monorepo, ASP.NET Core solution, React app, SQL Server, EF Core, initial migration, Employee seed infrastructure, AGENTS.md, CLAUDE.md, OpenSpec init, 9 slash commands, 3 Claude subagents, CI pipeline, EditorConfig, Husky, GitHub Actions | N/A | Platform | Planned | Foundation          |
-| ET002   | Domain model, entities, enums, EF configurations, DbContext, repositories, SQL Server schema, attachment model, seed CSV import | 2, 4, 5, 6, 11, 14 | Domain   | Planned | Core database |
-| ET003   | Authentication infrastructure, JWT, refresh tokens, BCrypt, authorization policies, middleware, rate limiting  | 3   | Authentication | Planned | Security foundation |
-| ET004   | User registration, login, refresh, logout APIs  | 3.1–3.3  | Authentication | Planned | Auth APIs  |
-| ET005   | Forgot password, OTP lifecycle, reset password, refresh token revocation  | 3.4–3.5           | Authentication | Planned | Password recovery   |
-| ET006   | Attachment upload API, filesystem storage, validation, metadata persistence | 4.1   | Attachments    | Planned | File upload         |
-| ET007   | Expense creation (Draft/Submit), expense number generation, validation, workflow initialization   | 4.1, 6, 11  | Expenses       | Planned | Expense submission  |
-| ET008   | Expense edit, cancel, ownership validation, read-only enforcement | 4.2–4.4, 11  | Expenses    | Planned | Expense maintenance |
-| ET009   | Expense query APIs, visibility filtering, pagination, sorting  | 4.4 | Expenses  | Planned | Expense viewing     |
+| Ticket | Scope| FRS Sections | Domain | Status  | Issue | Change Name |
+| ------ |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------- | ------- | ------------------- |------------------------|
+| ET001   | Project bootstrap, pnpm monorepo, ASP.NET Core solution, React app, SQL Server, EF Core, initial migration, Employee seed infrastructure, AGENTS.md, CLAUDE.md, OpenSpec init, 9 slash commands, 3 Claude subagents, CI pipeline, EditorConfig, Husky, GitHub Actions | N/A | Platform | Planned | Foundation |  |
+| ET002   | Domain model, entities, enums, EF configurations, DbContext, repositories, SQL Server schema, attachment model, seed CSV import | 2, 4, 5, 6, 11, 14 | Domain   | Planned | Core database |  |
+| ET003   | Authentication infrastructure, JWT, refresh tokens, BCrypt, authorization policies, middleware, rate limiting  | 3   | Authentication | Planned | Security foundation |  |
+| ET004   | User registration, login, refresh, logout APIs  | 3.1–3.3 | Authentication | Planned | Auth APIs |  |
+| ET005   | Forgot password, OTP lifecycle, reset password, refresh token revocation  | 3.4–3.5  | Authentication | Planned | Password recovery   |  |
+| ET006   | Attachment upload API, filesystem storage, validation, metadata persistence | 4.1   | Attachments    | Planned | File upload |  |
+| ET007   | Expense creation (Draft/Submit), expense number generation, validation, workflow initialization   | 4.1, 6, 11  | Expenses | Planned | Expense submission  |  |
+| ET008   | Expense edit, cancel, ownership validation, read-only enforcement | 4.2–4.4, 11  | Expenses    | Planned | Expense maintenance |  |
+| ET009   | Expense query APIs, visibility filtering, pagination, sorting  | 4.4 | Expenses  | Planned | Expense viewing     |  |
 | ET010   | Manager approval/rejection workflow including rejection comments  | 5.1  | Workflow  | Planned | Manager review  |
-| ET011   | Compliance approval/rejection workflow for Client Entertainment   | 5.2   | Workflow       | Planned | Compliance review   |
-| ET012   | Finance search, reimbursement workflow, reimbursement export APIs   | 7  | Finance        | Planned | Finance processing  |
-| ET013   | Dashboard aggregation APIs for Employee, Manager and Finance  | 8  | Dashboard      | Planned | Dashboard metrics   |
-| ET014   | Monthly reimbursement Excel generation using ClosedXML  | 10   | Reporting      | Planned | Reporting  |
-| ET015   | HTML notification logging, notification templates, post-commit notification service | 9  | Notifications  | Planned | Notifications  |
-| ET016   | React authentication module (routing, login, registration, reset password, protected routes) | 3 | Frontend   | Planned | Authentication UI   |
-| ET017   | Expense management UI (create, edit, cancel, upload receipt, list, detail)   | 4  | Frontend       | Planned | Expense UI  |
-| ET018   | Manager, Compliance and Finance review screens   | 5, 7  | Frontend  | Planned | Review UI |
-| ET019   | Dashboard, finance search, monthly report download UI | 7, 8, 10 | Frontend  | Planned | Dashboard & Reports |
-| ET020   | Unit tests, integration tests, Playwright E2E, FRS traceability matrix, CI quality gates, release readiness  | All  | Quality  | Planned | Verification  |
+| ET011   | Compliance approval/rejection workflow for Client Entertainment   | 5.2   | Workflow       | Planned | Compliance review   |  |
+| ET012   | Finance search, reimbursement workflow, reimbursement export APIs   | 7  | Finance        | Planned | Finance processing  |  |
+| ET013   | Dashboard aggregation APIs for Employee, Manager and Finance  | 8  | Dashboard      | Planned | Dashboard metrics   |  |
+| ET014   | Monthly reimbursement Excel generation using ClosedXML  | 10   | Reporting      | Planned | Reporting  |  |
+| ET015   | HTML notification logging, notification templates, post-commit notification service | 9  | Notifications  | Planned | Notifications  |  |
+| ET016   | React authentication module (routing, login, registration, reset password, protected routes) | 3 | Frontend   | Planned | Authentication UI   |  |
+| ET017   | Expense management UI (create, edit, cancel, upload receipt, list, detail)   | 4  | Frontend       | Planned | Expense UI  |  |
+| ET018   | Manager, Compliance and Finance review screens   | 5, 7  | Frontend  | Planned | Review UI |  |
+| ET019   | Dashboard, finance search, monthly report download UI | 7, 8, 10 | Frontend  | Planned | Dashboard & Reports |  |
+| ET020   | Unit tests, integration tests, Playwright E2E, FRS traceability matrix, CI quality gates, release readiness  | All  | Quality  | Planned | Verification  |  |
 
 ## Out of Scope (all tickets)
 
