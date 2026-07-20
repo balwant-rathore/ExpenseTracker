@@ -17,4 +17,12 @@ public class PasswordResetOtpRepository : Repository<PasswordResetOtp>, IPasswor
             .OrderByDescending(o => o.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<PasswordResetOtp?> GetMostRecentForUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await DbContext.PasswordResetOtps
+            .Where(o => o.UserId == userId)
+            .OrderByDescending(o => o.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

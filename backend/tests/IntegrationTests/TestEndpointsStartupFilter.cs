@@ -27,6 +27,12 @@ public class TestEndpointsStartupFilter : IStartupFilter
 
                 endpoints.MapPost("/__test/rate-limited", () => Results.Ok())
                     .RequireRateLimiting(AuthRateLimitPolicyNames.Login);
+
+                endpoints.MapPost("/__test/rate-limited-forgot-password", () => Results.Ok())
+                    .RequireRateLimiting(AuthRateLimitPolicyNames.ForgotPassword);
+
+                endpoints.MapPost("/__test/rate-limited-reset-password", () => Results.Ok())
+                    .RequireRateLimiting(AuthRateLimitPolicyNames.ResetPassword);
             });
         };
     }

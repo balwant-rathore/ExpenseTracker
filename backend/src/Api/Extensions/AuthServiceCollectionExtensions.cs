@@ -21,11 +21,13 @@ public static class AuthServiceCollectionExtensions
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<RefreshTokenOptions>(configuration.GetSection(RefreshTokenOptions.SectionName));
         services.Configure<AuthRateLimitOptions>(configuration.GetSection(AuthRateLimitOptions.SectionName));
+        services.Configure<PasswordResetOtpOptions>(configuration.GetSection(PasswordResetOtpOptions.SectionName));
 
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
         services.AddScoped<IPasswordPolicyValidator, PasswordPolicyValidator>();
+        services.AddScoped<IPasswordResetOtpService, PasswordResetOtpService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 

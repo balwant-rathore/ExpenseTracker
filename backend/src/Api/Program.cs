@@ -6,6 +6,7 @@ using Infrastructure.Persistence;
 using Infrastructure.Persistence.Repositories;
 using Infrastructure.Seeding;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +45,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 
     using var seedScope = app.Services.CreateScope();
     var seedRunner = seedScope.ServiceProvider.GetRequiredService<ISeedRunner>();
