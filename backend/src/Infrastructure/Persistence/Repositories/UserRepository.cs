@@ -13,6 +13,7 @@ public class UserRepository : Repository<User>, IUserRepository
     public async Task<User?> GetByNormalizedEmailAsync(string normalizedEmail, CancellationToken cancellationToken)
     {
         return await DbContext.Users
+            .Include(u => u.Employee)
             .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail, cancellationToken);
     }
 

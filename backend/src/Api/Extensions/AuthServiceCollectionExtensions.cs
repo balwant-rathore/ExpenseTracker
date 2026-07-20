@@ -4,6 +4,7 @@ using Api.Authentication;
 using Api.Authorization;
 using Api.RateLimiting;
 using Application.Auth;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
@@ -25,6 +26,8 @@ public static class AuthServiceCollectionExtensions
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
         services.AddScoped<IPasswordPolicyValidator, PasswordPolicyValidator>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
         services.AddScoped<EmployeeRoleResolutionMiddleware>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, EnvelopeAuthorizationMiddlewareResultHandler>();

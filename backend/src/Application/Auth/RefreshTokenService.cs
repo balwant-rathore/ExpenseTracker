@@ -87,6 +87,21 @@ public class RefreshTokenService : IRefreshTokenService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<bool> RevokeAsync(Guid userId, string rawToken, CancellationToken cancellationToken)
+    {
+        var tokenHash = HashToken(rawToken);
+        var existingToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+
+        if (existingToken is null || existingToken.UserId != userId || existingToken.RevokedAt is not null)
+        {
+            return false;
+        }
+
+        existingToken.RevokedAt = DateTime.UtcNow;
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     private async Task RevokeAllActiveAsync(Guid userId, CancellationToken cancellationToken)
     {
         var activeTokens = await _refreshTokenRepository.GetActiveByUserIdAsync(userId, cancellationToken);

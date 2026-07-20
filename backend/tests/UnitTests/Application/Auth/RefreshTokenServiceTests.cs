@@ -124,6 +124,42 @@ public class RefreshTokenServiceTests
         Assert.Equal(alreadyRevokedAt, alreadyRevoked.RevokedAt);
         Assert.Null(expired.RevokedAt);
     }
+
+    [Fact]
+    public async Task RevokingASingleTokenSetsOnlyThatTokensRevokedAt()
+    {
+        var repository = new FakeRefreshTokenRepository();
+        var service = CreateService(repository);
+        var userId = Guid.NewGuid();
+
+        var rawTokenA = await service.IssueAsync(userId, CancellationToken.None);
+        await service.IssueAsync(userId, CancellationToken.None);
+        var tokenA = repository.Tokens[0];
+        var tokenB = repository.Tokens[1];
+
+        var result = await service.RevokeAsync(userId, rawTokenA, CancellationToken.None);
+
+        Assert.True(result);
+        Assert.NotNull(tokenA.RevokedAt);
+        Assert.Null(tokenB.RevokedAt);
+    }
+
+    [Fact]
+    public async Task RevokingATokenThatDoesNotBelongToTheCallerFails()
+    {
+        var repository = new FakeRefreshTokenRepository();
+        var service = CreateService(repository);
+        var ownerUserId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+
+        var rawToken = await service.IssueAsync(ownerUserId, CancellationToken.None);
+        var token = repository.Tokens[0];
+
+        var result = await service.RevokeAsync(otherUserId, rawToken, CancellationToken.None);
+
+        Assert.False(result);
+        Assert.Null(token.RevokedAt);
+    }
 }
 
 internal sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
@@ -157,4 +193,6 @@ internal sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
 internal sealed class FakeUnitOfWork : IUnitOfWork
 {
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(0);
+
+    public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken) => operation();
 }
