@@ -25,6 +25,9 @@ public class TestEndpointsStartupFilter : IStartupFilter
                 endpoints.MapGet("/__test/manager-only", () => Results.Ok())
                     .RequireAuthorization(AuthorizationPolicyNames.Manager);
 
+                endpoints.MapGet("/__test/employee-or-manager-only", () => Results.Ok())
+                    .RequireAuthorization(AuthorizationPolicyNames.EmployeeOrManager);
+
                 endpoints.MapPost("/__test/rate-limited", () => Results.Ok())
                     .RequireRateLimiting(AuthRateLimitPolicyNames.Login);
 
