@@ -1,4 +1,5 @@
 using Api.Authentication;
+using Api.ErrorHandling;
 using Api.Extensions;
 using Domain.Repositories;
 using Infrastructure.Persistence;
@@ -34,6 +35,9 @@ builder.Services.AddScoped<ISeedRunner, EmployeeCsvSeedRunner>();
 
 builder.Services.AddAuthFoundation(builder.Configuration);
 
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -45,6 +49,8 @@ if (app.Environment.IsDevelopment())
     var seedRunner = seedScope.ServiceProvider.GetRequiredService<ISeedRunner>();
     await seedRunner.SeedAsync(CancellationToken.None);
 }
+
+app.UseExceptionHandler();
 
 app.UseHttpsRedirection();
 

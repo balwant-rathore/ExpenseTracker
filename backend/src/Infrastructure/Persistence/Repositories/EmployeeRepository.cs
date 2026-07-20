@@ -13,6 +13,7 @@ public class EmployeeRepository : Repository<Employee>, IEmployeeRepository
     public async Task<Employee?> GetByEmployeeNumberAsync(string employeeNumber, CancellationToken cancellationToken)
     {
         return await DbContext.Employees
+            .Include(e => e.User)
             .FirstOrDefaultAsync(e => e.EmployeeNumber == employeeNumber, cancellationToken);
     }
 }
