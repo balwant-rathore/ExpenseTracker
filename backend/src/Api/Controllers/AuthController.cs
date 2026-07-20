@@ -18,19 +18,25 @@ public class AuthController : ControllerBase
     private readonly IValidator<LoginRequest> _loginValidator;
     private readonly IValidator<RefreshRequest> _refreshValidator;
     private readonly IValidator<LogoutRequest> _logoutValidator;
+    private readonly IValidator<ForgotPasswordRequest> _forgotPasswordValidator;
+    private readonly IValidator<ResetPasswordRequest> _resetPasswordValidator;
 
     public AuthController(
         IAuthService authService,
         IValidator<RegisterRequest> registerValidator,
         IValidator<LoginRequest> loginValidator,
         IValidator<RefreshRequest> refreshValidator,
-        IValidator<LogoutRequest> logoutValidator)
+        IValidator<LogoutRequest> logoutValidator,
+        IValidator<ForgotPasswordRequest> forgotPasswordValidator,
+        IValidator<ResetPasswordRequest> resetPasswordValidator)
     {
         _authService = authService;
         _registerValidator = registerValidator;
         _loginValidator = loginValidator;
         _refreshValidator = refreshValidator;
         _logoutValidator = logoutValidator;
+        _forgotPasswordValidator = forgotPasswordValidator;
+        _resetPasswordValidator = resetPasswordValidator;
     }
 
     [HttpPost("register")]
@@ -109,6 +115,39 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("forgot-password")]
+    [EnableRateLimiting(AuthRateLimitPolicyNames.ForgotPassword)]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var validation = await _forgotPasswordValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return ValidationErrorResult(validation);
+        }
+
+        await _authService.ForgotPasswordAsync(request, cancellationToken);
+        return Ok();
+    }
+
+    [HttpPost("reset-password")]
+    [EnableRateLimiting(AuthRateLimitPolicyNames.ResetPassword)]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var validation = await _resetPasswordValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return ValidationErrorResult(validation);
+        }
+
+        var result = await _authService.ResetPasswordAsync(request, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return FailureResult(result.FailureReason);
+        }
+
+        return Ok();
+    }
+
     private IActionResult ValidationErrorResult(FluentValidation.Results.ValidationResult validation)
     {
         var fields = validation.Errors.Select(e => e.PropertyName).Distinct().ToList();
@@ -147,6 +186,21 @@ public class AuthController : ControllerBase
                 "AUTHENTICATION_FAILED",
                 "Authentication failed.",
                 [],
+                HttpContext.TraceIdentifier))),
+            AuthFailureReason.OtpExpired => StatusCode(StatusCodes.Status410Gone, new ErrorResponse(new ErrorDetail(
+                "RESOURCE_EXPIRED",
+                "This one-time code has expired.",
+                [],
+                HttpContext.TraceIdentifier))),
+            AuthFailureReason.OtpInvalid => Unauthorized(new ErrorResponse(new ErrorDetail(
+                "AUTHENTICATION_FAILED",
+                "This one-time code is invalid.",
+                [],
+                HttpContext.TraceIdentifier))),
+            AuthFailureReason.NewPasswordPolicyViolation => BadRequest(new ErrorResponse(new ErrorDetail(
+                "VALIDATION_ERROR",
+                "Password does not meet complexity requirements.",
+                ["newPassword"],
                 HttpContext.TraceIdentifier))),
             _ => StatusCode(StatusCodes.Status500InternalServerError),
         };

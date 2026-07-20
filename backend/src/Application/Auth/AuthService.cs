@@ -11,6 +11,7 @@ public class AuthService : IAuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IPasswordPolicyValidator _passwordPolicyValidator;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IPasswordResetOtpService _passwordResetOtpService;
     private readonly IUnitOfWork _unitOfWork;
 
     public AuthService(
@@ -20,6 +21,7 @@ public class AuthService : IAuthService
         IPasswordHasher passwordHasher,
         IPasswordPolicyValidator passwordPolicyValidator,
         IJwtTokenService jwtTokenService,
+        IPasswordResetOtpService passwordResetOtpService,
         IUnitOfWork unitOfWork)
     {
         _employeeRepository = employeeRepository;
@@ -28,6 +30,7 @@ public class AuthService : IAuthService
         _passwordHasher = passwordHasher;
         _passwordPolicyValidator = passwordPolicyValidator;
         _jwtTokenService = jwtTokenService;
+        _passwordResetOtpService = passwordResetOtpService;
         _unitOfWork = unitOfWork;
     }
 
@@ -113,5 +116,56 @@ public class AuthService : IAuthService
         return revoked
             ? new AuthResult(true, null, null, null, AuthFailureReason.None)
             : AuthResult.Failure(AuthFailureReason.RefreshTokenInvalid);
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var normalizedEmail = request.Email.ToUpperInvariant();
+        var user = await _userRepository.GetByNormalizedEmailAsync(normalizedEmail, cancellationToken);
+        if (user is null)
+        {
+            return;
+        }
+
+        await _passwordResetOtpService.RequestResetAsync(user.Id, user.Email, cancellationToken);
+    }
+
+    public async Task<AuthResult> ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var normalizedEmail = request.Email.ToUpperInvariant();
+        var user = await _userRepository.GetByNormalizedEmailAsync(normalizedEmail, cancellationToken);
+        if (user is null)
+        {
+            return AuthResult.Failure(AuthFailureReason.OtpInvalid);
+        }
+
+        if (!_passwordPolicyValidator.IsSatisfiedBy(request.NewPassword))
+        {
+            return AuthResult.Failure(AuthFailureReason.NewPasswordPolicyViolation);
+        }
+
+        AuthFailureReason? failureReason = null;
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var verification = await _passwordResetOtpService.VerifyAndConsumeAsync(user.Id, request.Otp, cancellationToken);
+            if (!verification.Succeeded)
+            {
+                failureReason = verification.FailureReason == OtpVerificationFailureReason.Expired
+                    ? AuthFailureReason.OtpExpired
+                    : AuthFailureReason.OtpInvalid;
+                return;
+            }
+
+            user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+            await _refreshTokenService.RevokeAllAsync(user.Id, cancellationToken);
+        }, cancellationToken);
+
+        if (failureReason is not null)
+        {
+            return AuthResult.Failure(failureReason.Value);
+        }
+
+        return new AuthResult(true, null, null, null, AuthFailureReason.None);
     }
 }

@@ -7,7 +7,10 @@ public enum AuthFailureReason
     EmailAlreadyRegistered,
     PasswordPolicyViolation,
     InvalidCredentials,
-    RefreshTokenInvalid
+    RefreshTokenInvalid,
+    OtpExpired,
+    OtpInvalid,
+    NewPasswordPolicyViolation
 }
 
 public record AuthResult(

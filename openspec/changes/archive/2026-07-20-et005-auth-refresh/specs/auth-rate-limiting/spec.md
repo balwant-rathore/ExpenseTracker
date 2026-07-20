@@ -1,8 +1,5 @@
-# auth-rate-limiting Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change et003-auth-foundation. Update Purpose after archive.
-## Requirements
 ### Requirement: Rate Limiter Policies for Auth Endpoints
 The `Api` layer SHALL register named ASP.NET Core `RateLimiter` policies, one per auth endpoint
 (`register`, `login`, `forgot-password`, `reset-password`), using a sliding-window algorithm keyed
@@ -33,15 +30,3 @@ to live endpoints — no policy remains unattached pending a future ticket.
   `reset-password` policy
 - **THEN** the exceeding request to `POST /api/auth/reset-password` SHALL be rejected with HTTP
   `429` and error code `RATE_LIMIT_EXCEEDED`
-
-### Requirement: Rate Limiting Does Not Leak Credential Validity
-A rejected (`429`) request SHALL receive an identical response regardless of whether the
-credentials or identifier supplied in that request would otherwise have been valid, preserving the
-anti-enumeration guarantees required of the auth endpoints (`docs/FRS.md` §3.5, error scenarios;
-`docs/AGENTS.md` §7).
-
-#### Scenario: Rate-limited response does not reveal credential correctness
-- **WHEN** a request is rejected for exceeding a rate limit
-- **THEN** the `429` response body SHALL be the same standard error envelope regardless of whether
-  the request's credentials would have succeeded or failed authentication
-

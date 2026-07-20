@@ -41,6 +41,44 @@ public class RateLimitingTests : IClassFixture<RateLimitedWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ForgotPasswordRequestsExceedingConfiguredLimit_Return429()
+    {
+        var client = _factory.CreateClient();
+
+        // NOTE: RateLimitedWebApplicationFactory's config override (PermitLimit=3) does not
+        // reliably reach AddAuthRateLimiting - see AuthFunctionalWebApplicationFactory's doc
+        // comment for why (a one-time synchronous IConfiguration.Get<T>() snapshot taken before
+        // the test host's ConfigureAppConfiguration additions are merged). The ForgotPassword
+        // policy has no other test traffic to accumulate against, so this loops to the real
+        // production default (5 per 300s, see appsettings.json) rather than the ineffective
+        // lower test override.
+        for (var i = 0; i < 5; i++)
+        {
+            await client.PostAsync("/__test/rate-limited-forgot-password", content: null);
+        }
+
+        var response = await client.PostAsync("/__test/rate-limited-forgot-password", content: null);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ResetPasswordRequestsExceedingConfiguredLimit_Return429()
+    {
+        var client = _factory.CreateClient();
+
+        // See NOTE in ForgotPasswordRequestsExceedingConfiguredLimit_Return429 above.
+        for (var i = 0; i < 5; i++)
+        {
+            await client.PostAsync("/__test/rate-limited-reset-password", content: null);
+        }
+
+        var response = await client.PostAsync("/__test/rate-limited-reset-password", content: null);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+    }
+
+    [Fact]
     public async Task RateLimitedResponse_IsIdenticalRegardlessOfRequestContent()
     {
         var client = _factory.CreateClient();

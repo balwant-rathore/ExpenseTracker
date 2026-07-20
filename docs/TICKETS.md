@@ -13,7 +13,7 @@ linked GitHub issue
 | ET002   | Domain model, entities, enums, EF configurations, DbContext, repositories, SQL Server schema, attachment model, seed CSV import | 2, 4, 5, 6, 11, 14 | Domain   | Done | [#2](https://github.com/balwant-rathore/ExpenseTracker/pull/2) | et002-domain-setup |
 | ET003   | Authentication infrastructure, JWT, refresh tokens, BCrypt, authorization policies, middleware, rate limiting  | 3   | Authentication | Done | [#3](https://github.com/balwant-rathore/ExpenseTracker/pull/3) | et003-auth-foundation |
 | ET004   | User registration, login, refresh, logout APIs  | 3.1–3.3 | Authentication | PR open (#4) | [#4](https://github.com/balwant-rathore/ExpenseTracker/pull/4) | et004-auth-api |
-| ET005   | Forgot password, OTP lifecycle, reset password, refresh token revocation, Scalar OpenAPI UI integration (ADR-0004) | 3.4–3.5  | Authentication | Planned | Password recovery   |  |
+| ET005   | Forgot password, OTP lifecycle, reset password, refresh token revocation, Scalar OpenAPI UI integration (ADR-0004) | 3.4–3.5  | Authentication | In progress | Password recovery   | et005-auth-refresh |
 | ET006   | Attachment upload API, filesystem storage, validation, metadata persistence | 4.1   | Attachments    | Planned | File upload |  |
 | ET007   | Expense creation (Draft/Submit), expense number generation, validation, workflow initialization   | 4.1, 6, 11  | Expenses | Planned | Expense submission  |  |
 | ET008   | Expense edit, cancel, ownership validation, read-only enforcement | 4.2–4.4, 11  | Expenses    | Planned | Expense maintenance |  |
