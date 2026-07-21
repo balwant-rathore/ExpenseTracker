@@ -16,5 +16,7 @@ public class Attachment
 
     public DateTime UploadedAt { get; set; }
 
+    public Guid UploadedByEmployeeId { get; set; }
+
     public Expense? Expense { get; set; }
 }

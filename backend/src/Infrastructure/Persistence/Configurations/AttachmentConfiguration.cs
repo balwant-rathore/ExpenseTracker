@@ -15,5 +15,10 @@ public class AttachmentConfiguration : IEntityTypeConfiguration<Attachment>
         builder.Property(a => a.ContentType).HasMaxLength(100).IsRequired();
         builder.Property(a => a.FileExtension).HasMaxLength(10).IsRequired();
         builder.Property(a => a.StoragePath).HasMaxLength(500).IsRequired();
+
+        builder.HasOne<Employee>()
+            .WithMany()
+            .HasForeignKey(a => a.UploadedByEmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

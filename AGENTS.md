@@ -17,54 +17,14 @@ end-to-end on the backend.
 
 ## 2. Repository Structure
 
-```
-docs/                    Specs: FRS.md, SDS.md, TICKETS.md, decisions/ (ADRs), EmployeeSeedData.csv
-frontend/                React 19 SPA (ET001, ET016-019)
-  src/api/                 API client functions
-  src/components/           Reusable UI (shadcn/ui)
-  src/features/             Feature modules: auth, expenses, dashboard, reports
-  src/hooks/, layouts/, pages/, routes/   Custom hooks, app shell, route pages, router config
-  src/store/                Zustand stores (local UI state ONLY)
-  src/types/, utils/         Shared types, shared utilities
-backend/                 ASP.NET Core 9 Web API (ET001-ET015)
-  src/Api/                   Controllers, middleware, auth wiring, DI, config
-  src/Application/           Business logic, DTOs, validators, services
-  src/Domain/                Entities, enums, interfaces
-  src/Infrastructure/        EF Core, SQL Server, repositories, file storage, notifications
-  src/Shared/                Common utilities, constants, extensions
-```
-
 Frontend and backend both organize the same four feature areas: **Authentication, Expenses,
-Dashboard, Reports**.
+Dashboard, Reports**. See `docs/SDS.md` §2.1 for the full directory layout, or `ls`/`find`
+the current tree — it's kept in sync as tickets land.
 
 ## 3. Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 19 + TypeScript + Vite, shadcn/ui, Tailwind CSS, React Router |
-| Frontend state | TanStack Query (server state), Zustand (UI state only), React Hook Form + Zod |
-| Backend | ASP.NET Core 9 Web API, C# 13, Entity Framework Core 9 |
-| Database | Microsoft SQL Server 2022 |
-| Auth | JWT access tokens + server-persisted refresh tokens, BCrypt password hashing |
-| Files / Reports | Local filesystem storage (metadata in DB); ClosedXML for `.xlsx` reports |
-| Docs | OpenAPI / Swagger |
-| Backend tests | xUnit; WebApplicationFactory (integration) |
-| Frontend tests | Vitest + React Testing Library; Playwright (E2E) |
-| Package mgmt | pnpm (JS/TS monorepo workspace), NuGet (.NET) |
-
-## 4. Key Commands
-
-> Once bootstrapped (ET001), expected shape — update as real scripts land.
-
-```bash
-pnpm install                                # install workspace deps
-pnpm --filter frontend dev                  # frontend dev server
-pnpm --filter frontend build|test|lint      # frontend build / component tests / lint
-dotnet build|run --project src/Api|test     # backend build / run / test (from backend/)
-dotnet ef migrations add <Name>             # add EF Core migration
-dotnet ef database update                   # apply migrations
-npx playwright test                          # E2E tests
-```
+See `frontend/package.json` and the backend `.csproj` files for exact versions in use;
+full rationale for each choice is in `docs/SDS.md` §2.
 
 ## 5. Architecture Patterns
 
@@ -108,18 +68,8 @@ JWTs, refresh tokens, or OTPs.
 
 ## 7. Auth Approach
 
-- JWT access token: HS256, 15 min, claim is `sub` (UserId) only — no roles embedded. Refresh
-  token: random, 7-day, stored server-side as SHA-256 hash only, **rotated on every use**; reuse
-  of a revoked token invalidates all of that user's refresh tokens.
-- Role is never trusted from the token — middleware resolves the user, loads their `Employee`
-  record, and derives role on **every** request.
-- BCrypt password hashing; policy: min 8 chars, ≥1 letter, ≥1 digit.
-- Registration requires `email` + `password` + `employeeId` matched against a pre-seeded
-  `Employee` record — no self-service employee creation, no social login.
-- Password reset: 6-digit OTP, SHA-256 hashed, 10-min expiry, single-use, new OTP invalidates
-  prior one, logged to console only (no real email). Successful reset revokes all refresh tokens.
-- Auth errors are generic — never reveal which field failed or whether an account exists.
-- Rate limiting on `register`, `login`, `forgot-password`, `reset-password` → `429` over the limit.
+Full JWT/refresh-token/OTP design detail moved to `backend/CLAUDE.md` §Auth Approach
+(backend-only concern; frontend only calls the `/api/auth/*` endpoints below).
 
 ## 8. API Design Conventions
 
@@ -138,16 +88,8 @@ JWTs, refresh tokens, or OTPs.
 
 ## 9. DB Schema Summary
 
-(Full definitions: `docs/SDS.md` §3.)
-
-- **Employee** — CSV-seeded, read-only after setup, no CRUD API, self-references `ManagerId`.
-- **User** — 1:1 Employee, unique case-insensitive `Email`, `PasswordHash`.
-- **RefreshToken** / **PasswordResetOtp** — 1:many from User, hashes only, expiry/used tracking.
-- **Expense** — 1:many from Employee, 1:1 Attachment. `ExpenseNumber` = `EXP-yyyyMMdd-XXXX`
-  (backend-generated, immutable). Full audit trail (`SubmittedAt/ApprovedAt/...By...Id/
-  RejectionComment`) — system-managed only, never client-editable.
-- **Attachment** — 1:1 Expense, metadata + `StoragePath` only (file on disk), max 10 MB,
-  PDF/JPG/PNG only.
+(Full definitions: `docs/SDS.md` §3. Entity/table-level detail moved to `backend/CLAUDE.md`
+§DB Schema Summary — backend-only concern; frontend never touches EF Core entities directly.)
 
 Enums: `EmployeeRole` (Employee, Manager, Finance, ComplianceOfficer) · `ExpenseCategory` (Travel,
 Hotel, Meals, OfficeSupplies, ClientEntertainment, Training, Other — exactly these 7) ·
@@ -158,13 +100,6 @@ Workflow: `Draft → Submitted → Approved → Reimbursed`, except `ClientEnter
 terminal (employee must submit a new expense). Cancellation flow: `Draft` or `Submitted` → `Cancelled`.
 
 ## 10. Testing Approach
-
-| Level | Framework | Scope |
-|-------|-----------|-------|
-| Unit | xUnit | Business logic, validators, utilities |
-| Integration | xUnit + WebApplicationFactory | APIs, middleware, EF Core, storage, notifications |
-| Component | Vitest + React Testing Library | React components/UI |
-| E2E | Playwright | Full user workflows |
 
 Run: `dotnet test` (backend), `pnpm --filter frontend test` (component), `npx playwright test`
 (E2E). Tests are deterministic/independent and verify observable behavior, not implementation.
@@ -198,3 +133,28 @@ No `/packages/shared` exists or is planned. Backend cross-cutting code lives in
 `backend/src/Shared/`; frontend cross-cutting code lives in `frontend/src/types/` and
 `frontend/src/utils/`. Frontend and backend share no code — only the REST API contract in
 `docs/SDS.md` §5.
+
+## 13. Implementation Completeness Guardrails
+
+Added after ET007 needed four `/review` passes to reach compliance — each pass fixed the
+specific thing it found, but missed that the same root cause applied more broadly. These rules
+exist to catch that broader case on the *first* pass, before `/review` runs at all.
+
+- **A rule that says "same as X" or "identical to X" is a checklist, not a phrase.** When a spec/
+  design says two things are validated/handled "the same way" (e.g., "Submit re-runs the same
+  checks as Create"; "all seven fields are mandatory"), enumerate every item that phrase covers
+  and verify each one individually against the code — don't verify one instance and assume the
+  rest follow. A fix that only handles the instance that triggered a bug report, without asking
+  "does this same root cause apply to the other N-1 cases," is not done.
+- **A design/proposal doc that goes stale during coding is itself a defect**, not acceptable
+  documentation debt to leave for later. If implementation deviates from an already-approved
+  `design.md`/`proposal.md` while coding (a type changes, a mechanism changes, a new file is
+  added), update that doc in the *same* change — before calling the ticket ready for `/review`,
+  not after a review catches the mismatch.
+- **Diff generated artifacts against your actual intent, not just against "did it run."**
+  Scaffolders (EF Core migrations, codegen, etc.) optimize for "won't break on apply," which is a
+  different goal than "matches what you designed." Read the generated output line-by-line against
+  what the design doc/ADR says before considering the task done.
+- **Before marking a ticket ready for `/review`, self-check every "handled identically" claim by
+  re-tracing both code paths side by side** — don't rely on one being a copy-paste of the other
+  staying in sync as either evolves.
