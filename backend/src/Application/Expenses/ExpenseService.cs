@@ -1,3 +1,4 @@
+using Application.Notifications;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Repositories;
@@ -13,19 +14,22 @@ public class ExpenseService : IExpenseService
     private readonly IExpenseNumberGenerator _expenseNumberGenerator;
     private readonly ICompanyClock _companyClock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly INotificationService _notificationService;
 
     public ExpenseService(
         IExpenseRepository expenseRepository,
         IAttachmentRepository attachmentRepository,
         IExpenseNumberGenerator expenseNumberGenerator,
         ICompanyClock companyClock,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        INotificationService notificationService)
     {
         _expenseRepository = expenseRepository;
         _attachmentRepository = attachmentRepository;
         _expenseNumberGenerator = expenseNumberGenerator;
         _companyClock = companyClock;
         _unitOfWork = unitOfWork;
+        _notificationService = notificationService;
     }
 
     public async Task<ExpenseResult> CreateAsync(Guid employeeId, CreateExpenseRequest request, CancellationToken cancellationToken)
@@ -191,8 +195,14 @@ public class ExpenseService : IExpenseService
         var sortField = Enum.Parse<ExpenseSortField>(request.SortBy, ignoreCase: true);
         var descending = string.Equals(request.SortDirection, "desc", StringComparison.OrdinalIgnoreCase);
 
+        // Status is null or a valid ExpenseStatus name by this point: the controller always
+        // runs ExpenseListRequestValidator before calling GetVisibleAsync.
+        ExpenseStatus? statusFilter = request.Status is null
+            ? null
+            : Enum.Parse<ExpenseStatus>(request.Status, ignoreCase: true);
+
         var (items, totalRecords) = await _expenseRepository.GetPagedAsync(
-            predicate, sortField, descending, request.Page, request.PageSize, cancellationToken);
+            predicate, sortField, descending, request.Page, request.PageSize, statusFilter, cancellationToken);
 
         return new PagedExpenseResponse(items.Select(Map).ToList(), request.Page, request.PageSize, totalRecords);
     }
@@ -289,6 +299,93 @@ public class ExpenseService : IExpenseService
         return ExpenseResult.Success(Map(expense));
     }
 
+    public async Task<ExpenseResult> ApproveAsync(Guid managerId, Guid expenseId, CancellationToken cancellationToken)
+    {
+        var expense = await _expenseRepository.GetByIdWithEmployeeAsync(expenseId, cancellationToken);
+        if (expense is null)
+        {
+            return ExpenseResult.Failure(ExpenseFailureReason.ExpenseNotFound);
+        }
+
+        if (!CanReview(expense, managerId))
+        {
+            return ExpenseResult.Failure(ExpenseFailureReason.NotAuthorizedReviewer);
+        }
+
+        if (expense.Status != ExpenseStatus.Submitted)
+        {
+            return ExpenseResult.Failure(ExpenseFailureReason.NotSubmitted);
+        }
+
+        var now = DateTime.UtcNow;
+        expense.Status = ExpenseStatus.Approved;
+        expense.ApprovedAt = now;
+        expense.ApprovedByEmployeeId = managerId;
+        expense.UpdatedAt = now;
+
+        await _unitOfWork.ExecuteInTransactionAsync(
+            () => _unitOfWork.SaveChangesAsync(cancellationToken),
+            cancellationToken);
+
+        await _notificationService.NotifyAsync(NotificationEvent.Approved, expense, cancellationToken);
+
+        return ExpenseResult.Success(Map(expense));
+    }
+
+    public async Task<ExpenseResult> RejectAsync(Guid managerId, Guid expenseId, RejectExpenseRequest request, CancellationToken cancellationToken)
+    {
+        var expense = await _expenseRepository.GetByIdWithEmployeeAsync(expenseId, cancellationToken);
+        if (expense is null)
+        {
+            return ExpenseResult.Failure(ExpenseFailureReason.ExpenseNotFound);
+        }
+
+        if (!CanReview(expense, managerId))
+        {
+            return ExpenseResult.Failure(ExpenseFailureReason.NotAuthorizedReviewer);
+        }
+
+        if (expense.Status != ExpenseStatus.Submitted)
+        {
+            return ExpenseResult.Failure(ExpenseFailureReason.NotSubmitted);
+        }
+
+        var now = DateTime.UtcNow;
+        expense.Status = ExpenseStatus.Rejected;
+        expense.RejectedAt = now;
+        expense.RejectedByEmployeeId = managerId;
+        // RejectionComment is non-null, non-empty by this point: the controller always runs
+        // RejectExpenseRequestValidator (which rejects null/empty/whitespace/oversized values)
+        // before calling RejectAsync.
+        expense.RejectionComment = request.RejectionComment!;
+        expense.UpdatedAt = now;
+
+        await _unitOfWork.ExecuteInTransactionAsync(
+            () => _unitOfWork.SaveChangesAsync(cancellationToken),
+            cancellationToken);
+
+        await _notificationService.NotifyAsync(NotificationEvent.Rejected, expense, cancellationToken);
+
+        return ExpenseResult.Success(Map(expense));
+    }
+
+    // BR-06: a Manager can never review their own expense. Otherwise a Manager reviews an
+    // expense iff they are the owner's ManagerId - this single check already covers both
+    // "owner is a regular Employee" and "owner is itself a Manager who cannot self-review"
+    // (the owner's own ManagerId is who reviews it instead), since Employee.ManagerId always
+    // means "who this person reports to" regardless of the owner's own role. No additional
+    // hop is taken beyond the owner's direct manager - doing so would incorrectly authorize
+    // an indirect (grandparent) manager, which ET009's visibility rules explicitly exclude.
+    private static bool CanReview(Expense expense, Guid managerId)
+    {
+        if (expense.EmployeeId == managerId)
+        {
+            return false;
+        }
+
+        return expense.Employee.ManagerId == managerId;
+    }
+
     private static ExpenseResponse Map(Expense expense)
     {
         var employeeName = expense.Employee is not null
@@ -305,6 +402,9 @@ public class ExpenseService : IExpenseService
             expense.Description,
             expense.Status.ToString(),
             expense.SubmittedAt,
+            expense.ApprovedAt,
+            expense.RejectedAt,
+            expense.RejectionComment,
             expense.CreatedAt,
             employeeName);
     }

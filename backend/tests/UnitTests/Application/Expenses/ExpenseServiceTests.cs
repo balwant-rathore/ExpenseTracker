@@ -1,4 +1,5 @@
 using Application.Expenses;
+using Application.Notifications;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Repositories;
@@ -257,7 +258,7 @@ public class ExpenseServiceTests
         var attachment = CreateAttachment(EmployeeId);
         attachmentRepository.Attachments.Add(attachment);
         var companyClock = new FakeCompanyClock { FixedToday = new DateOnly(2026, 3, 20) };
-        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), companyClock, new FakeExpensesUnitOfWork());
+        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), companyClock, new FakeExpensesUnitOfWork(), new FakeNotificationService());
 
         var sameDayAsCompanyToday = CreateRequest(attachment.Id, expenseDate: new DateOnly(2026, 3, 20));
         var oneDayAfterCompanyToday = CreateRequest(attachment.Id, expenseDate: new DateOnly(2026, 3, 21));
@@ -855,6 +856,255 @@ public class ExpenseServiceTests
         Assert.Equal(status, expense.Status);
     }
 
+    [Fact]
+    public async Task ApproveAsync_DirectManagerOfReport_TransitionsToApproved()
+    {
+        var managerId = Guid.NewGuid();
+        var reportId = Guid.NewGuid();
+        var attachment = CreateAttachment(reportId);
+        var expense = CreateExpense(reportId, attachment.Id, ExpenseStatus.Submitted, managerId: managerId);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ApproveAsync(managerId, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Approved", result.Expense!.Status);
+        Assert.Equal(ExpenseStatus.Approved, expense.Status);
+        Assert.Equal(managerId, expense.ApprovedByEmployeeId);
+        Assert.NotNull(expense.ApprovedAt);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_OwnExpense_ReturnsNotAuthorizedReviewer()
+    {
+        var managerId = Guid.NewGuid();
+        var attachment = CreateAttachment(managerId);
+        var expense = CreateExpense(managerId, attachment.Id, ExpenseStatus.Submitted);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ApproveAsync(managerId, expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotAuthorizedReviewer, result.FailureReason);
+        Assert.Equal(ExpenseStatus.Submitted, expense.Status);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_UnrelatedManager_ReturnsNotAuthorizedReviewer()
+    {
+        var managerId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Submitted, managerId: Guid.NewGuid());
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ApproveAsync(managerId, expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotAuthorizedReviewer, result.FailureReason);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_SkipLevelManagerOfManagerOwnedExpense_TransitionsToApproved()
+    {
+        var skipLevelManagerId = Guid.NewGuid();
+        var ownerManagerId = Guid.NewGuid();
+        var attachment = CreateAttachment(ownerManagerId);
+        var expense = CreateExpense(ownerManagerId, attachment.Id, ExpenseStatus.Submitted, managerId: skipLevelManagerId);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ApproveAsync(skipLevelManagerId, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(ExpenseStatus.Approved, expense.Status);
+        Assert.Equal(skipLevelManagerId, expense.ApprovedByEmployeeId);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_NonexistentId_ReturnsExpenseNotFound()
+    {
+        var expenseRepository = new FakeExpenseRepository();
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ApproveAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.ExpenseNotFound, result.FailureReason);
+    }
+
+    [Theory]
+    [InlineData(ExpenseStatus.Draft)]
+    [InlineData(ExpenseStatus.Approved)]
+    [InlineData(ExpenseStatus.ComplianceApproved)]
+    [InlineData(ExpenseStatus.Rejected)]
+    [InlineData(ExpenseStatus.Cancelled)]
+    [InlineData(ExpenseStatus.Reimbursed)]
+    public async Task ApproveAsync_NonSubmittedStatus_ReturnsNotSubmitted(ExpenseStatus status)
+    {
+        var managerId = Guid.NewGuid();
+        var reportId = Guid.NewGuid();
+        var attachment = CreateAttachment(reportId);
+        var expense = CreateExpense(reportId, attachment.Id, status, managerId: managerId);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ApproveAsync(managerId, expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotSubmitted, result.FailureReason);
+        Assert.Equal(status, expense.Status);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_Success_SendsApprovedNotificationAfterCommit()
+    {
+        var managerId = Guid.NewGuid();
+        var reportId = Guid.NewGuid();
+        var attachment = CreateAttachment(reportId);
+        var expense = CreateExpense(reportId, attachment.Id, ExpenseStatus.Submitted, managerId: managerId);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var notificationService = new FakeNotificationService();
+        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork(), notificationService);
+
+        var result = await service.ApproveAsync(managerId, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var notification = Assert.Single(notificationService.Notifications);
+        Assert.Equal(NotificationEvent.Approved, notification.Event);
+    }
+
+    [Fact]
+    public async Task RejectAsync_DirectManagerOfReport_TransitionsToRejected_SetsRejectionComment()
+    {
+        var managerId = Guid.NewGuid();
+        var reportId = Guid.NewGuid();
+        var attachment = CreateAttachment(reportId);
+        var expense = CreateExpense(reportId, attachment.Id, ExpenseStatus.Submitted, managerId: managerId);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.RejectAsync(managerId, expense.Id, new RejectExpenseRequest { RejectionComment = "Missing itemized receipt" }, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Rejected", result.Expense!.Status);
+        Assert.Equal(ExpenseStatus.Rejected, expense.Status);
+        Assert.Equal(managerId, expense.RejectedByEmployeeId);
+        Assert.NotNull(expense.RejectedAt);
+        Assert.Equal("Missing itemized receipt", expense.RejectionComment);
+    }
+
+    [Fact]
+    public async Task RejectAsync_OwnExpense_ReturnsNotAuthorizedReviewer()
+    {
+        var managerId = Guid.NewGuid();
+        var attachment = CreateAttachment(managerId);
+        var expense = CreateExpense(managerId, attachment.Id, ExpenseStatus.Submitted);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.RejectAsync(managerId, expense.Id, new RejectExpenseRequest { RejectionComment = "Comment" }, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotAuthorizedReviewer, result.FailureReason);
+        Assert.Equal(ExpenseStatus.Submitted, expense.Status);
+    }
+
+    [Fact]
+    public async Task RejectAsync_UnrelatedManager_ReturnsNotAuthorizedReviewer()
+    {
+        var managerId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Submitted, managerId: Guid.NewGuid());
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.RejectAsync(managerId, expense.Id, new RejectExpenseRequest { RejectionComment = "Comment" }, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotAuthorizedReviewer, result.FailureReason);
+    }
+
+    [Fact]
+    public async Task RejectAsync_SkipLevelManagerOfManagerOwnedExpense_TransitionsToRejected()
+    {
+        var skipLevelManagerId = Guid.NewGuid();
+        var ownerManagerId = Guid.NewGuid();
+        var attachment = CreateAttachment(ownerManagerId);
+        var expense = CreateExpense(ownerManagerId, attachment.Id, ExpenseStatus.Submitted, managerId: skipLevelManagerId);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.RejectAsync(skipLevelManagerId, expense.Id, new RejectExpenseRequest { RejectionComment = "Comment" }, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(ExpenseStatus.Rejected, expense.Status);
+        Assert.Equal(skipLevelManagerId, expense.RejectedByEmployeeId);
+    }
+
+    [Fact]
+    public async Task RejectAsync_NonexistentId_ReturnsExpenseNotFound()
+    {
+        var expenseRepository = new FakeExpenseRepository();
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.RejectAsync(Guid.NewGuid(), Guid.NewGuid(), new RejectExpenseRequest { RejectionComment = "Comment" }, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.ExpenseNotFound, result.FailureReason);
+    }
+
+    [Theory]
+    [InlineData(ExpenseStatus.Draft)]
+    [InlineData(ExpenseStatus.Approved)]
+    [InlineData(ExpenseStatus.ComplianceApproved)]
+    [InlineData(ExpenseStatus.Rejected)]
+    [InlineData(ExpenseStatus.Cancelled)]
+    [InlineData(ExpenseStatus.Reimbursed)]
+    public async Task RejectAsync_NonSubmittedStatus_ReturnsNotSubmitted(ExpenseStatus status)
+    {
+        var managerId = Guid.NewGuid();
+        var reportId = Guid.NewGuid();
+        var attachment = CreateAttachment(reportId);
+        var expense = CreateExpense(reportId, attachment.Id, status, managerId: managerId);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.RejectAsync(managerId, expense.Id, new RejectExpenseRequest { RejectionComment = "Comment" }, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotSubmitted, result.FailureReason);
+        Assert.Equal(status, expense.Status);
+    }
+
     private static UpdateExpenseRequest UpdateRequest(
         Guid attachmentId, decimal amount = 100m, DateOnly? expenseDate = null, string description = "Updated expense") => new()
         {
@@ -867,7 +1117,7 @@ public class ExpenseServiceTests
         };
 
     private static ExpenseService CreateService(FakeExpenseRepository expenseRepository, FakeExpensesAttachmentRepository attachmentRepository) =>
-        new(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork());
+        new(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork(), new FakeNotificationService());
 
     private static Attachment CreateAttachment(Guid uploaderId) => new()
     {
@@ -978,4 +1228,15 @@ internal sealed class FakeExpensesUnitOfWork : IUnitOfWork
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(0);
 
     public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken) => operation();
+}
+
+internal sealed class FakeNotificationService : INotificationService
+{
+    public List<(NotificationEvent Event, Expense Expense)> Notifications { get; } = [];
+
+    public Task NotifyAsync(NotificationEvent notificationEvent, Expense expense, CancellationToken cancellationToken)
+    {
+        Notifications.Add((notificationEvent, expense));
+        return Task.CompletedTask;
+    }
 }

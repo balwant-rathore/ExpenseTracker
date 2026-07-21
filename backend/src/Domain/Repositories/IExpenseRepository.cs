@@ -19,5 +19,6 @@ public interface IExpenseRepository : IRepository<Expense>
         bool descending,
         int page,
         int pageSize,
+        ExpenseStatus? statusFilter,
         CancellationToken cancellationToken);
 }
