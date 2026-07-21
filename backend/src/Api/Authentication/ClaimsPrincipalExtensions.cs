@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Domain.Enums;
 
 namespace Api.Authentication;
 
@@ -21,5 +22,13 @@ public static class ClaimsPrincipalExtensions
         return employeeIdClaim is not null && Guid.TryParse(employeeIdClaim.Value, out var employeeId)
             ? employeeId
             : throw new InvalidOperationException("No valid employee_id claim present on the authenticated principal.");
+    }
+
+    public static EmployeeRole GetRole(this ClaimsPrincipal principal)
+    {
+        var roleClaim = principal.FindFirst(ClaimTypes.Role);
+        return roleClaim is not null && Enum.TryParse<EmployeeRole>(roleClaim.Value, out var role)
+            ? role
+            : throw new InvalidOperationException("No valid role claim present on the authenticated principal.");
     }
 }

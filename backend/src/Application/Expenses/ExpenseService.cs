@@ -165,20 +165,36 @@ public class ExpenseService : IExpenseService
         return ExpenseResult.Success(Map(expense));
     }
 
-    public async Task<ExpenseResult> GetByIdAsync(Guid employeeId, Guid expenseId, CancellationToken cancellationToken)
+    public async Task<ExpenseResult> GetByIdAsync(Guid employeeId, EmployeeRole role, Guid expenseId, CancellationToken cancellationToken)
     {
-        var expense = await _expenseRepository.GetByIdAsync(expenseId, cancellationToken);
+        var expense = await _expenseRepository.GetByIdWithEmployeeAsync(expenseId, cancellationToken);
         if (expense is null)
         {
             return ExpenseResult.Failure(ExpenseFailureReason.ExpenseNotFound);
         }
 
-        if (expense.EmployeeId != employeeId)
+        var isVisible = ExpenseVisibility.BuildPredicate(role, employeeId).Compile().Invoke(expense);
+        if (!isVisible)
         {
-            return ExpenseResult.Failure(ExpenseFailureReason.NotOwner);
+            return ExpenseResult.Failure(ExpenseFailureReason.NotVisible);
         }
 
         return ExpenseResult.Success(Map(expense));
+    }
+
+    public async Task<PagedExpenseResponse> GetVisibleAsync(Guid employeeId, EmployeeRole role, ExpenseListRequest request, CancellationToken cancellationToken)
+    {
+        var predicate = ExpenseVisibility.BuildPredicate(role, employeeId);
+
+        // SortBy/SortDirection are non-null, valid values by this point: the controller
+        // always runs ExpenseListRequestValidator before calling GetVisibleAsync.
+        var sortField = Enum.Parse<ExpenseSortField>(request.SortBy, ignoreCase: true);
+        var descending = string.Equals(request.SortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+
+        var (items, totalRecords) = await _expenseRepository.GetPagedAsync(
+            predicate, sortField, descending, request.Page, request.PageSize, cancellationToken);
+
+        return new PagedExpenseResponse(items.Select(Map).ToList(), request.Page, request.PageSize, totalRecords);
     }
 
     public async Task<ExpenseResult> UpdateAsync(Guid employeeId, Guid expenseId, UpdateExpenseRequest request, CancellationToken cancellationToken)
@@ -275,6 +291,10 @@ public class ExpenseService : IExpenseService
 
     private static ExpenseResponse Map(Expense expense)
     {
+        var employeeName = expense.Employee is not null
+            ? $"{expense.Employee.FirstName} {expense.Employee.LastName}"
+            : null;
+
         return new ExpenseResponse(
             expense.Id,
             expense.ExpenseNumber,
@@ -285,6 +305,7 @@ public class ExpenseService : IExpenseService
             expense.Description,
             expense.Status.ToString(),
             expense.SubmittedAt,
-            expense.CreatedAt);
+            expense.CreatedAt,
+            employeeName);
     }
 }

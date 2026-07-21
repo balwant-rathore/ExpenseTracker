@@ -1,3 +1,5 @@
+using Domain.Enums;
+
 namespace Application.Expenses;
 
 public interface IExpenseService
@@ -6,9 +8,11 @@ public interface IExpenseService
 
     Task<ExpenseResult> SubmitAsync(Guid employeeId, Guid expenseId, CancellationToken cancellationToken);
 
-    Task<ExpenseResult> GetByIdAsync(Guid employeeId, Guid expenseId, CancellationToken cancellationToken);
+    Task<ExpenseResult> GetByIdAsync(Guid employeeId, EmployeeRole role, Guid expenseId, CancellationToken cancellationToken);
 
     Task<ExpenseResult> UpdateAsync(Guid employeeId, Guid expenseId, UpdateExpenseRequest request, CancellationToken cancellationToken);
 
     Task<ExpenseResult> CancelAsync(Guid employeeId, Guid expenseId, CancellationToken cancellationToken);
+
+    Task<PagedExpenseResponse> GetVisibleAsync(Guid employeeId, EmployeeRole role, ExpenseListRequest request, CancellationToken cancellationToken);
 }

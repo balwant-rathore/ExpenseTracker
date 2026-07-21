@@ -10,24 +10,28 @@ namespace Api.Controllers;
 
 [ApiController]
 [Route("api/expenses")]
-[Authorize(Policy = AuthorizationPolicyNames.EmployeeOrManager)]
+[Authorize]
 public class ExpensesController : ControllerBase
 {
     private readonly IExpenseService _expenseService;
     private readonly IValidator<CreateExpenseRequest> _createValidator;
     private readonly IValidator<UpdateExpenseRequest> _updateValidator;
+    private readonly IValidator<ExpenseListRequest> _listValidator;
 
     public ExpensesController(
         IExpenseService expenseService,
         IValidator<CreateExpenseRequest> createValidator,
-        IValidator<UpdateExpenseRequest> updateValidator)
+        IValidator<UpdateExpenseRequest> updateValidator,
+        IValidator<ExpenseListRequest> listValidator)
     {
         _expenseService = expenseService;
         _createValidator = createValidator;
         _updateValidator = updateValidator;
+        _listValidator = listValidator;
     }
 
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicyNames.EmployeeOrManager)]
     public async Task<IActionResult> Create(CreateExpenseRequest request, CancellationToken cancellationToken)
     {
         var validation = await _createValidator.ValidateAsync(request, cancellationToken);
@@ -46,6 +50,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/submit")]
+    [Authorize(Policy = AuthorizationPolicyNames.EmployeeOrManager)]
     public async Task<IActionResult> Submit(Guid id, CancellationToken cancellationToken)
     {
         var result = await _expenseService.SubmitAsync(User.GetEmployeeId(), id, cancellationToken);
@@ -57,10 +62,23 @@ public class ExpensesController : ControllerBase
         return Ok(new ExpenseEnvelopeResponse(result.Expense!));
     }
 
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] ExpenseListRequest request, CancellationToken cancellationToken)
+    {
+        var validation = await _listValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return ValidationErrorResult(validation);
+        }
+
+        var result = await _expenseService.GetVisibleAsync(User.GetEmployeeId(), User.GetRole(), request, cancellationToken);
+        return Ok(result);
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var result = await _expenseService.GetByIdAsync(User.GetEmployeeId(), id, cancellationToken);
+        var result = await _expenseService.GetByIdAsync(User.GetEmployeeId(), User.GetRole(), id, cancellationToken);
         if (!result.Succeeded)
         {
             return FailureResult(result.FailureReason);
@@ -70,6 +88,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AuthorizationPolicyNames.EmployeeOrManager)]
     public async Task<IActionResult> Update(Guid id, UpdateExpenseRequest request, CancellationToken cancellationToken)
     {
         var validation = await _updateValidator.ValidateAsync(request, cancellationToken);
@@ -88,6 +107,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/cancel")]
+    [Authorize(Policy = AuthorizationPolicyNames.EmployeeOrManager)]
     public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken)
     {
         var result = await _expenseService.CancelAsync(User.GetEmployeeId(), id, cancellationToken);
@@ -144,6 +164,11 @@ public class ExpensesController : ControllerBase
                 [],
                 HttpContext.TraceIdentifier))),
             ExpenseFailureReason.NotOwner => StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse(new ErrorDetail(
+                "AUTHORIZATION_FAILED",
+                "You do not have permission to perform this action.",
+                [],
+                HttpContext.TraceIdentifier))),
+            ExpenseFailureReason.NotVisible => StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse(new ErrorDetail(
                 "AUTHORIZATION_FAILED",
                 "You do not have permission to perform this action.",
                 [],

@@ -10,4 +10,5 @@ public record ExpenseResponse(
     string Description,
     string Status,
     DateTime? SubmittedAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? EmployeeName);

@@ -17,7 +17,7 @@ linked GitHub issue
 | ET006   | Attachment upload API, filesystem storage, validation, metadata persistence | 4.1   | Attachments    | Done | File upload | et006-file-attachments |
 | ET007   | Expense creation (Draft/Submit), expense number generation, validation, workflow initialization   | 4.1, 6, 11  | Expenses | Done | [#7](https://github.com/balwant-rathore/ExpenseTracker/pull/7) | et007-expense-submission |
 | ET008   | Expense edit, cancel, ownership validation, read-only enforcement | 4.2–4.4, 11  | Expenses    | PR open (#8) | [#8](https://github.com/balwant-rathore/ExpenseTracker/pull/8) | et008-expense-management |
-| ET009   | Expense query APIs, visibility filtering, pagination, sorting  | 4.4 | Expenses  | Planned | Expense viewing     |  |
+| ET009   | Expense query APIs, visibility filtering, pagination, sorting  | 4.4 | Expenses  | PR open (#9) | [#9](https://github.com/balwant-rathore/ExpenseTracker/pull/9) | et009-expenses-view |
 | ET010   | Manager approval/rejection workflow including rejection comments  | 5.1  | Workflow  | Planned | Manager review  |
 | ET011   | Compliance approval/rejection workflow for Client Entertainment   | 5.2   | Workflow       | Planned | Compliance review   |  |
 | ET012   | Finance search, reimbursement workflow, reimbursement export APIs   | 7  | Finance        | Planned | Finance processing  |  |
