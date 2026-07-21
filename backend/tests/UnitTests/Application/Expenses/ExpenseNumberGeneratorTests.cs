@@ -206,6 +206,19 @@ internal sealed class FakeExpenseRepository : IExpenseRepository
 
         return Task.FromResult<IReadOnlyList<Expense>>(items);
     }
+
+    public Task<IReadOnlyList<StatusCategoryCount>> GetStatusCategoryCountsAsync(
+        Expression<Func<Expense, bool>> scopePredicate,
+        CancellationToken cancellationToken)
+    {
+        var counts = Expenses.AsQueryable()
+            .Where(scopePredicate)
+            .GroupBy(e => new { e.Status, e.Category })
+            .Select(g => new StatusCategoryCount(g.Key.Status, g.Key.Category, g.Count()))
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<StatusCategoryCount>>(counts);
+    }
 }
 
 internal sealed class FakeCompanyClock : ICompanyClock

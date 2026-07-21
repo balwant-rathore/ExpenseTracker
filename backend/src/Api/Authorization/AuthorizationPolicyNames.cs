@@ -9,4 +9,5 @@ public static class AuthorizationPolicyNames
     public const string Finance = nameof(EmployeeRole.Finance);
     public const string ComplianceOfficer = nameof(EmployeeRole.ComplianceOfficer);
     public const string EmployeeOrManager = "EmployeeOrManager";
+    public const string EmployeeOrManagerOrFinance = "EmployeeOrManagerOrFinance";
 }
