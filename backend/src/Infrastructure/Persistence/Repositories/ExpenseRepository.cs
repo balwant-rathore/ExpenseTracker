@@ -47,6 +47,20 @@ public class ExpenseRepository : Repository<Expense>, IExpenseRepository
         }
     }
 
+    public async Task<bool> TryUpdateAsync(Expense expense, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await DbContext.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex, "IX_Expenses_AttachmentId"))
+        {
+            DbContext.Entry(expense).State = EntityState.Unchanged;
+            return false;
+        }
+    }
+
     private static bool IsUniqueViolation(DbUpdateException exception, string indexName)
     {
         return exception.InnerException is SqlException sqlException

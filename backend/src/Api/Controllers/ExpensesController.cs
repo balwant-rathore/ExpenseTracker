@@ -15,11 +15,16 @@ public class ExpensesController : ControllerBase
 {
     private readonly IExpenseService _expenseService;
     private readonly IValidator<CreateExpenseRequest> _createValidator;
+    private readonly IValidator<UpdateExpenseRequest> _updateValidator;
 
-    public ExpensesController(IExpenseService expenseService, IValidator<CreateExpenseRequest> createValidator)
+    public ExpensesController(
+        IExpenseService expenseService,
+        IValidator<CreateExpenseRequest> createValidator,
+        IValidator<UpdateExpenseRequest> updateValidator)
     {
         _expenseService = expenseService;
         _createValidator = createValidator;
+        _updateValidator = updateValidator;
     }
 
     [HttpPost]
@@ -44,6 +49,48 @@ public class ExpensesController : ControllerBase
     public async Task<IActionResult> Submit(Guid id, CancellationToken cancellationToken)
     {
         var result = await _expenseService.SubmitAsync(User.GetEmployeeId(), id, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return FailureResult(result.FailureReason);
+        }
+
+        return Ok(new ExpenseEnvelopeResponse(result.Expense!));
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _expenseService.GetByIdAsync(User.GetEmployeeId(), id, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return FailureResult(result.FailureReason);
+        }
+
+        return Ok(new ExpenseEnvelopeResponse(result.Expense!));
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, UpdateExpenseRequest request, CancellationToken cancellationToken)
+    {
+        var validation = await _updateValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return ValidationErrorResult(validation);
+        }
+
+        var result = await _expenseService.UpdateAsync(User.GetEmployeeId(), id, request, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return FailureResult(result.FailureReason);
+        }
+
+        return Ok(new ExpenseEnvelopeResponse(result.Expense!));
+    }
+
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _expenseService.CancelAsync(User.GetEmployeeId(), id, cancellationToken);
         if (!result.Succeeded)
         {
             return FailureResult(result.FailureReason);
@@ -114,6 +161,16 @@ public class ExpensesController : ControllerBase
             ExpenseFailureReason.DescriptionTooLong => StatusCode(StatusCodes.Status422UnprocessableEntity, new ErrorResponse(new ErrorDetail(
                 "BUSINESS_RULE_VIOLATION",
                 "Description must not exceed 500 characters.",
+                [],
+                HttpContext.TraceIdentifier))),
+            ExpenseFailureReason.NotEditable => StatusCode(StatusCodes.Status422UnprocessableEntity, new ErrorResponse(new ErrorDetail(
+                "BUSINESS_RULE_VIOLATION",
+                "Only expenses in Draft or Submitted status can be edited.",
+                [],
+                HttpContext.TraceIdentifier))),
+            ExpenseFailureReason.NotCancellable => StatusCode(StatusCodes.Status422UnprocessableEntity, new ErrorResponse(new ErrorDetail(
+                "BUSINESS_RULE_VIOLATION",
+                "Only expenses in Draft or Submitted status can be cancelled.",
                 [],
                 HttpContext.TraceIdentifier))),
             _ => StatusCode(StatusCodes.Status500InternalServerError),
