@@ -38,6 +38,7 @@ builder.Services.AddAuthFoundation(builder.Configuration);
 builder.Services.AddAttachmentFoundation(builder.Configuration);
 builder.Services.AddExpenseFoundation(builder.Configuration);
 builder.Services.AddReportFoundation();
+builder.Services.AddDashboardFoundation();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();

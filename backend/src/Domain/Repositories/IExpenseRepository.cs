@@ -39,4 +39,8 @@ public interface IExpenseRepository : IRepository<Expense>
         DateTime rangeStartUtcInclusive,
         DateTime rangeEndUtcExclusive,
         CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<StatusCategoryCount>> GetStatusCategoryCountsAsync(
+        Expression<Func<Expense, bool>> scopePredicate,
+        CancellationToken cancellationToken);
 }

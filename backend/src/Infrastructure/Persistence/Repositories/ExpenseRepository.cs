@@ -194,6 +194,17 @@ public class ExpenseRepository : Repository<Expense>, IExpenseRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<StatusCategoryCount>> GetStatusCategoryCountsAsync(
+        Expression<Func<Expense, bool>> scopePredicate,
+        CancellationToken cancellationToken)
+    {
+        return await DbContext.Expenses
+            .Where(scopePredicate)
+            .GroupBy(e => new { e.Status, e.Category })
+            .Select(g => new StatusCategoryCount(g.Key.Status, g.Key.Category, g.Count()))
+            .ToListAsync(cancellationToken);
+    }
+
     private static IOrderedQueryable<Expense> OrderBy<TKey>(
         IQueryable<Expense> query,
         Expression<Func<Expense, TKey>> keySelector,
