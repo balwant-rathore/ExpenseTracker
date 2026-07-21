@@ -20,4 +20,5 @@ public enum ExpenseFailureReason
     NotAuthorizedReviewer,
     NotClientEntertainment,
     NotApprovedForCompliance,
+    NotEligibleForReimbursement,
 }

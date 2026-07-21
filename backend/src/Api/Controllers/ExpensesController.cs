@@ -18,19 +18,22 @@ public class ExpensesController : ControllerBase
     private readonly IValidator<UpdateExpenseRequest> _updateValidator;
     private readonly IValidator<ExpenseListRequest> _listValidator;
     private readonly IValidator<RejectExpenseRequest> _rejectValidator;
+    private readonly IValidator<ExpenseSearchRequest> _searchValidator;
 
     public ExpensesController(
         IExpenseService expenseService,
         IValidator<CreateExpenseRequest> createValidator,
         IValidator<UpdateExpenseRequest> updateValidator,
         IValidator<ExpenseListRequest> listValidator,
-        IValidator<RejectExpenseRequest> rejectValidator)
+        IValidator<RejectExpenseRequest> rejectValidator,
+        IValidator<ExpenseSearchRequest> searchValidator)
     {
         _expenseService = expenseService;
         _createValidator = createValidator;
         _updateValidator = updateValidator;
         _listValidator = listValidator;
         _rejectValidator = rejectValidator;
+        _searchValidator = searchValidator;
     }
 
     [HttpPost]
@@ -63,6 +66,20 @@ public class ExpensesController : ControllerBase
         }
 
         return Ok(new ExpenseEnvelopeResponse(result.Expense!));
+    }
+
+    [HttpPost("search")]
+    [Authorize(Policy = AuthorizationPolicyNames.Finance)]
+    public async Task<IActionResult> Search(ExpenseSearchRequest request, CancellationToken cancellationToken)
+    {
+        var validation = await _searchValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return ValidationErrorResult(validation);
+        }
+
+        var result = await _expenseService.SearchAsync(request, cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet]
@@ -186,6 +203,19 @@ public class ExpensesController : ControllerBase
         return Ok(new ExpenseEnvelopeResponse(result.Expense!));
     }
 
+    [HttpPost("{id:guid}/reimburse")]
+    [Authorize(Policy = AuthorizationPolicyNames.Finance)]
+    public async Task<IActionResult> Reimburse(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _expenseService.ReimburseAsync(User.GetEmployeeId(), id, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return FailureResult(result.FailureReason);
+        }
+
+        return Ok(new ExpenseEnvelopeResponse(result.Expense!));
+    }
+
     private IActionResult ValidationErrorResult(FluentValidation.Results.ValidationResult validation)
     {
         var fields = validation.Errors.Select(e => e.PropertyName).Distinct().ToList();
@@ -283,6 +313,11 @@ public class ExpensesController : ControllerBase
             ExpenseFailureReason.NotApprovedForCompliance => StatusCode(StatusCodes.Status422UnprocessableEntity, new ErrorResponse(new ErrorDetail(
                 "BUSINESS_RULE_VIOLATION",
                 "Only expenses in Approved status can be compliance-reviewed.",
+                [],
+                HttpContext.TraceIdentifier))),
+            ExpenseFailureReason.NotEligibleForReimbursement => StatusCode(StatusCodes.Status422UnprocessableEntity, new ErrorResponse(new ErrorDetail(
+                "BUSINESS_RULE_VIOLATION",
+                "Only Approved (non-Client Entertainment) or Compliance Approved (Client Entertainment) expenses can be reimbursed.",
                 [],
                 HttpContext.TraceIdentifier))),
             _ => StatusCode(StatusCodes.Status500InternalServerError),

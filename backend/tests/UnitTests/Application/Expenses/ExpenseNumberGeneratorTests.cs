@@ -123,6 +123,89 @@ internal sealed class FakeExpenseRepository : IExpenseRepository
 
         return Task.FromResult<(IReadOnlyList<Expense> Items, int TotalRecords)>((items, total));
     }
+
+    public Task<(IReadOnlyList<Expense> Items, int TotalRecords)> SearchPagedAsync(
+        string? expenseNumber,
+        string? employeeName,
+        ExpenseCategory? category,
+        ExpenseStatus? status,
+        DateTime? createdFromUtc,
+        DateTime? createdToUtc,
+        ExpenseSortField sortBy,
+        bool descending,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var filtered = Expenses.AsQueryable().Where(e => e.Status != ExpenseStatus.Draft);
+
+        if (!string.IsNullOrWhiteSpace(expenseNumber))
+        {
+            filtered = filtered.Where(e => e.ExpenseNumber.Equals(expenseNumber, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(employeeName))
+        {
+            filtered = filtered.Where(e => $"{e.Employee.FirstName} {e.Employee.LastName}".Contains(employeeName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (category.HasValue)
+        {
+            filtered = filtered.Where(e => e.Category == category.Value);
+        }
+
+        if (status.HasValue)
+        {
+            filtered = filtered.Where(e => e.Status == status.Value);
+        }
+
+        if (createdFromUtc.HasValue)
+        {
+            filtered = filtered.Where(e => e.CreatedAt >= createdFromUtc.Value);
+        }
+
+        if (createdToUtc.HasValue)
+        {
+            filtered = filtered.Where(e => e.CreatedAt <= createdToUtc.Value);
+        }
+
+        var total = filtered.Count();
+
+        Func<Expense, object?> keySelector = sortBy switch
+        {
+            ExpenseSortField.ExpenseNumber => e => e.ExpenseNumber,
+            ExpenseSortField.CreatedAt => e => e.CreatedAt,
+            ExpenseSortField.Amount => e => e.Amount,
+            ExpenseSortField.SubmittedAt => e => e.SubmittedAt,
+            ExpenseSortField.ApprovedAt => e => e.ApprovedAt,
+            ExpenseSortField.ReimbursedAt => e => e.ReimbursedAt,
+            ExpenseSortField.RejectedAt => e => e.RejectedAt,
+            _ => e => e.ExpenseDate,
+        };
+
+        var ordered = descending
+            ? filtered.OrderByDescending(keySelector)
+            : filtered.OrderBy(keySelector);
+
+        var items = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        return Task.FromResult<(IReadOnlyList<Expense> Items, int TotalRecords)>((items, total));
+    }
+
+    public Task<IReadOnlyList<Expense>> GetReimbursedForReportAsync(
+        DateTime rangeStartUtcInclusive,
+        DateTime rangeEndUtcExclusive,
+        CancellationToken cancellationToken)
+    {
+        var items = Expenses
+            .Where(e => e.Status == ExpenseStatus.Reimbursed
+                && e.ReimbursedAt >= rangeStartUtcInclusive
+                && e.ReimbursedAt < rangeEndUtcExclusive)
+            .OrderBy(e => e.ReimbursedAt)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<Expense>>(items);
+    }
 }
 
 internal sealed class FakeCompanyClock : ICompanyClock

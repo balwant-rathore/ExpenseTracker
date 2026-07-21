@@ -1296,6 +1296,84 @@ public class ExpenseServiceTests
         Assert.Equal(NotificationEvent.ComplianceRejected, notification.Event);
     }
 
+    [Fact]
+    public async Task SearchAsync_NoParametersSupplied_UsesDefaults()
+    {
+        var expenseRepository = new FakeExpenseRepository();
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        for (var i = 0; i < 3; i++)
+        {
+            var attachment = CreateAttachment(EmployeeId);
+            expenseRepository.Expenses.Add(CreateExpense(EmployeeId, attachment.Id, ExpenseStatus.Submitted));
+        }
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.SearchAsync(new ExpenseSearchRequest(), CancellationToken.None);
+
+        Assert.Equal(1, result.Page);
+        Assert.Equal(20, result.PageSize);
+        Assert.Equal(3, result.TotalRecords);
+        Assert.Equal(3, result.Items.Count);
+    }
+
+    [Fact]
+    public async Task ReimburseAsync_ApprovedNonClientEntertainment_TransitionsToReimbursed()
+    {
+        var financeId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.Travel);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ReimburseAsync(financeId, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Reimbursed", result.Expense!.Status);
+        Assert.Equal(ExpenseStatus.Reimbursed, expense.Status);
+    }
+
+    [Fact]
+    public async Task ReimburseAsync_ComplianceApprovedClientEntertainment_TransitionsToReimbursed()
+    {
+        var financeId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.ComplianceApproved, ExpenseCategory.ClientEntertainment);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ReimburseAsync(financeId, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Reimbursed", result.Expense!.Status);
+        Assert.Equal(ExpenseStatus.Reimbursed, expense.Status);
+    }
+
+    [Fact]
+    public async Task ReimburseAsync_Success_PopulatesAuditFields()
+    {
+        var financeId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.Travel);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ReimburseAsync(financeId, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(financeId, expense.ReimbursedByEmployeeId);
+        Assert.NotNull(expense.ReimbursedAt);
+        Assert.Equal(expense.ReimbursedAt, result.Expense!.ReimbursedAt);
+    }
+
     private static UpdateExpenseRequest UpdateRequest(
         Guid attachmentId, decimal amount = 100m, DateOnly? expenseDate = null, string description = "Updated expense") => new()
         {
