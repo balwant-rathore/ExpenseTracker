@@ -323,6 +323,74 @@ public class ExpenseVisibilityTests : IAsyncLifetime
         Assert.Contains("VALIDATION_ERROR", body);
     }
 
+    // ---- status query filter (ET010) ----
+
+    // Scenario: Manager filters to only Submitted expenses
+    [Fact]
+    public async Task GetAll_Manager_StatusFilterSubmitted_ReturnsOnlySubmittedFromVisibleSet()
+    {
+        var (managerClient, managerId) = await CreateAuthorizedClientAsync(EmployeeRole.Manager);
+        var (reportClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Employee, managerId);
+        var submittedAttachment = await UploadAttachmentAsync(reportClient);
+        var submittedId = await CreateExpenseAsync(reportClient, submittedAttachment, "Submit");
+        var draftAttachment = await UploadAttachmentAsync(managerClient);
+        await CreateExpenseAsync(managerClient, draftAttachment, "Draft");
+
+        var ids = await GetItemIdsAsync(managerClient, "/api/expenses?status=Submitted&pageSize=100");
+
+        Assert.Contains(submittedId, ids);
+        Assert.Single(ids);
+    }
+
+    // Scenario: Status filter never expands visibility
+    [Fact]
+    public async Task GetAll_StatusFilterNeverExpandsVisibility_EmployeeSeesOnlyOwnApproved()
+    {
+        var (employeeClient, employeeId) = await CreateAuthorizedClientAsync(EmployeeRole.Employee);
+        var ownAttachment = await UploadAttachmentAsync(employeeClient);
+        var ownExpenseId = await CreateExpenseAsync(employeeClient, ownAttachment, "Submit");
+        await SetExpenseStatusAsync(ownExpenseId, ExpenseStatus.Approved);
+
+        var (otherClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Employee);
+        var otherAttachment = await UploadAttachmentAsync(otherClient);
+        var otherExpenseId = await CreateExpenseAsync(otherClient, otherAttachment, "Submit");
+        await SetExpenseStatusAsync(otherExpenseId, ExpenseStatus.Approved);
+
+        var ids = await GetItemIdsAsync(employeeClient, "/api/expenses?status=Approved&pageSize=100");
+
+        Assert.Contains(ownExpenseId, ids);
+        Assert.DoesNotContain(otherExpenseId, ids);
+    }
+
+    // Scenario: No status filter behaves as before
+    [Fact]
+    public async Task GetAll_NoStatusParameter_BehavesUnchangedFromBeforeThisChange()
+    {
+        var (client, _) = await CreateAuthorizedClientAsync(EmployeeRole.Employee);
+        var draftAttachment = await UploadAttachmentAsync(client);
+        var draftId = await CreateExpenseAsync(client, draftAttachment, "Draft");
+        var submittedAttachment = await UploadAttachmentAsync(client);
+        var submittedId = await CreateExpenseAsync(client, submittedAttachment, "Submit");
+
+        var ids = await GetItemIdsAsync(client, "/api/expenses?pageSize=100");
+
+        Assert.Contains(draftId, ids);
+        Assert.Contains(submittedId, ids);
+    }
+
+    // Scenario: Invalid status value is rejected
+    [Fact]
+    public async Task GetAll_InvalidStatusValue_Returns400()
+    {
+        var (client, _) = await CreateAuthorizedClientAsync(EmployeeRole.Employee);
+
+        var response = await client.GetAsync("/api/expenses?status=NotARealStatus");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("VALIDATION_ERROR", body);
+    }
+
     // ---- GET /api/expenses/{id} widened visibility ----
 
     // Scenario: Manager retrieves their own expense

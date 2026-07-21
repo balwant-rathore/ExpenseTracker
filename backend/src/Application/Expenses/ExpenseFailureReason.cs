@@ -16,4 +16,6 @@ public enum ExpenseFailureReason
     NotEditable,
     NotCancellable,
     NotVisible,
+    NotSubmitted,
+    NotAuthorizedReviewer,
 }

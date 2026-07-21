@@ -91,9 +91,16 @@ internal sealed class FakeExpenseRepository : IExpenseRepository
         bool descending,
         int page,
         int pageSize,
+        ExpenseStatus? statusFilter,
         CancellationToken cancellationToken)
     {
         var filtered = Expenses.AsQueryable().Where(visibilityPredicate);
+
+        if (statusFilter.HasValue)
+        {
+            filtered = filtered.Where(e => e.Status == statusFilter.Value);
+        }
+
         var total = filtered.Count();
 
         Func<Expense, object?> keySelector = sortBy switch

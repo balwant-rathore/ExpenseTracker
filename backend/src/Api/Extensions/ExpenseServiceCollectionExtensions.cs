@@ -1,4 +1,5 @@
 using Application.Expenses;
+using Application.Notifications;
 
 namespace Api.Extensions;
 
@@ -11,6 +12,7 @@ public static class ExpenseServiceCollectionExtensions
         services.AddScoped<IExpenseService, ExpenseService>();
         services.AddScoped<IExpenseNumberGenerator, ExpenseNumberGenerator>();
         services.AddScoped<ICompanyClock, CompanyClock>();
+        services.AddScoped<INotificationService, NoOpNotificationService>();
 
         return services;
     }

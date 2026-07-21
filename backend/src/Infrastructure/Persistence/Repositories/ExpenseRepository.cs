@@ -76,9 +76,15 @@ public class ExpenseRepository : Repository<Expense>, IExpenseRepository
         bool descending,
         int page,
         int pageSize,
+        ExpenseStatus? statusFilter,
         CancellationToken cancellationToken)
     {
         var filtered = DbContext.Expenses.Where(visibilityPredicate);
+
+        if (statusFilter.HasValue)
+        {
+            filtered = filtered.Where(e => e.Status == statusFilter.Value);
+        }
 
         var totalRecords = await filtered.CountAsync(cancellationToken);
 

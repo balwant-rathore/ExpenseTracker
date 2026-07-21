@@ -14,5 +14,9 @@ public interface IExpenseService
 
     Task<ExpenseResult> CancelAsync(Guid employeeId, Guid expenseId, CancellationToken cancellationToken);
 
+    Task<ExpenseResult> ApproveAsync(Guid managerId, Guid expenseId, CancellationToken cancellationToken);
+
+    Task<ExpenseResult> RejectAsync(Guid managerId, Guid expenseId, RejectExpenseRequest request, CancellationToken cancellationToken);
+
     Task<PagedExpenseResponse> GetVisibleAsync(Guid employeeId, EmployeeRole role, ExpenseListRequest request, CancellationToken cancellationToken);
 }

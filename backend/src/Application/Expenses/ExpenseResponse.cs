@@ -10,5 +10,8 @@ public record ExpenseResponse(
     string Description,
     string Status,
     DateTime? SubmittedAt,
+    DateTime? ApprovedAt,
+    DateTime? RejectedAt,
+    string? RejectionComment,
     DateTime CreatedAt,
     string? EmployeeName);

@@ -1,3 +1,4 @@
+using Domain.Enums;
 using FluentValidation;
 
 namespace Application.Expenses;
@@ -37,5 +38,9 @@ public class ExpenseListRequestValidator : AbstractValidator<ExpenseListRequest>
         RuleFor(x => x.SortDirection)
             .Must(sortDirection => AllowedSortDirections.Contains(sortDirection, StringComparer.OrdinalIgnoreCase))
             .WithMessage("SortDirection must be 'asc' or 'desc'.");
+
+        RuleFor(x => x.Status)
+            .Must(status => status is null || Enum.TryParse<ExpenseStatus>(status, out _))
+            .WithMessage("Status must be one of the defined expense statuses.");
     }
 }
