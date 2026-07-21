@@ -35,6 +35,7 @@ public class AttachmentService : IAttachmentService
             FileSize = (int)request.FileSize,
             StoragePath = relativePath,
             UploadedAt = DateTime.UtcNow,
+            UploadedByEmployeeId = request.UploadedByEmployeeId,
         };
 
         try

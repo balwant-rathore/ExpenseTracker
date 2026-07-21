@@ -64,6 +64,26 @@ public class AttachmentUploadTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ValidUpload_RecordsUploadedByEmployeeId_MatchingTheCaller()
+    {
+        var (userId, employeeId) = await CreateEmployeeAndUserAsync(EmployeeRole.Employee);
+        var client = CreateAuthorizedClient(GenerateToken(userId));
+
+        var response = await client.PostAsync("/api/attachments", CreateMultipartContent("et006-test-uploader.pdf", "application/pdf", 1024));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        using var json = JsonDocument.Parse(body);
+        var attachmentId = json.RootElement.GetProperty("attachmentId").GetGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var attachment = await dbContext.Attachments.FindAsync(attachmentId);
+        Assert.NotNull(attachment);
+        Assert.Equal(employeeId, attachment!.UploadedByEmployeeId);
+    }
+
+    [Fact]
     public async Task NoBearerToken_Returns401()
     {
         var client = _factory.CreateClient();

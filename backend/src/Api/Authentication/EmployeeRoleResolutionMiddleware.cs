@@ -33,6 +33,8 @@ public class EmployeeRoleResolutionMiddleware : IMiddleware
             }
 
             ((ClaimsIdentity)context.User.Identity).AddClaim(new Claim(ClaimTypes.Role, user.Employee.Role.ToString()));
+            ((ClaimsIdentity)context.User.Identity).AddClaim(
+                new Claim(ClaimsPrincipalExtensions.EmployeeIdClaimType, user.Employee.EmployeeId.ToString()));
         }
 
         await next(context);

@@ -42,3 +42,25 @@ npx playwright test       # E2E — run from repo/workspace root, not frontend/
   point of use.
 - Don't hardcode role-based UI branching in multiple components — centralize role checks in one
   place (hook or utility) that pages/components call.
+
+## Gotchas to Watch For (see backend/CLAUDE.md's "Gotchas" for the ET007 incident these
+generalize from — no shared code exists per AGENTS.md §12, so nothing here is type-checked
+against the backend automatically)
+
+- **A Zod schema that "looks equivalent" to the backend DTO can still diverge from it silently.**
+  Since frontend and backend share no code or types, there is no compiler check that a form's Zod
+  schema/TypeScript interface actually matches the current shape of the backend request/response
+  DTO it targets. Whenever a backend DTO's field changes — nullability, which fields are
+  genuinely mandatory vs. defaulted server-side, an enum becoming a string — re-check the
+  corresponding Zod schema and TS type field-by-field against the actual current backend code
+  (or `docs/SDS.md` §5 if it's been kept current), not against memory of what it used to be.
+- **When a design says two flows share the "same validation" (e.g., the create form and the edit
+  form both enforce a field the same way), implement and verify both explicitly.** Don't assume
+  that reusing one shared form component automatically keeps every field's validation in sync
+  between flows — check each flow's actual rendered behavior, not just that the component is
+  shared.
+- **A backend field that's optional/nullable is not automatically safe to treat as always-present
+  in a TypeScript type.** If the backend marks a response field nullable (or a request field
+  becomes optional server-side, falling back to a business-rule check instead of a hard
+  requirement), the frontend type must reflect that (`string | null`, not `string`) — TypeScript
+  won't catch this drift for you since there's no shared/generated type between the two apps.

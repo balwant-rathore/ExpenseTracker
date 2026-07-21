@@ -88,3 +88,35 @@ Enum values and workflow rules stay in the root `AGENTS.md` since frontend needs
 - Don't hand-write SQL migrations — always generate via `dotnet ef migrations add`.
 - Don't catch exceptions in a controller/service just to swallow or rethrow generically — let the
   global exception handler do its job.
+
+## Gotchas (found the hard way — ET007)
+
+- **`required` on a request DTO bound from a JSON body bypasses the error envelope.** C#'s
+  `required` member modifier is enforced by `System.Text.Json` at deserialization time — a
+  request that omits that JSON key fails *before* the controller or FluentValidation ever runs,
+  producing ASP.NET Core's default `ValidationProblemDetails` shape instead of this repo's
+  `{"error": {...}}` envelope (AGENTS.md §6). The same applies to binding a field as a real C#
+  enum instead of `string`: an invalid enum value also fails model binding before your validator
+  sees it. Rule: any property on a controller-bound request DTO must be a plain nullable/
+  primitive type (`string?`, not `required string` or a real enum) with the actual "is this
+  present/valid" check written explicitly in the FluentValidation validator — for *every*
+  property on that DTO, not just the ones you happen to be adding validation for right now. Write
+  one test per property that sends a request genuinely missing that JSON key (not merely an empty
+  string, and not a strongly-typed object that always serializes every field) and assert the
+  standard envelope comes back, not a 500 or ASP.NET's default shape.
+- **A missing/default value on a bound field must land somewhere that already rejects it —
+  verify, don't assume.** Removing `required` means a missing field silently becomes its type's
+  default (`0`, `Guid.Empty`, `default(DateOnly)`, `null`). Before shipping, trace where each
+  field's default value goes: some are already caught by an existing service-layer business-rule
+  check (e.g. `Amount: 0` hits the same `422` your BR-01 check already returns for "not positive"
+  — don't add a redundant 400-level check that would contradict the spec's documented code for
+  that case) and some are not (e.g. a missing `Description` sails past a `MaximumLength` check,
+  since length validators treat `null` as valid — that one genuinely needs an explicit
+  `NotEmpty()`). Don't apply one blanket fix to every field; check each one.
+- **After `dotnet ef migrations add`, read the generated `Up()`/`Down()` before running
+  `database update`.** The scaffolder adds its own conveniences you didn't ask for — most
+  commonly a `defaultValue:` on `AddColumn` for a new non-nullable column, so it can backfill
+  existing rows instead of failing. If the design intentionally wants the migration to fail on
+  non-empty tables (forcing an explicit data-cleanup step), you must manually delete that
+  `defaultValue:` argument — generating the migration again will re-add it, since it's the
+  scaffolder's default behavior, not something your entity configuration controls.

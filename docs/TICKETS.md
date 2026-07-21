@@ -15,7 +15,7 @@ linked GitHub issue
 | ET004   | User registration, login, refresh, logout APIs  | 3.1–3.3 | Authentication | Done | [#4](https://github.com/balwant-rathore/ExpenseTracker/pull/4) | et004-auth-api |
 | ET005   | Forgot password, OTP lifecycle, reset password, refresh token revocation, Scalar OpenAPI UI integration (ADR-0004) | 3.4–3.5  | Authentication | Done | [#5](https://github.com/balwant-rathore/ExpenseTracker/pull/5) | et005-auth-refresh |
 | ET006   | Attachment upload API, filesystem storage, validation, metadata persistence | 4.1   | Attachments    | PR open (#6) | File upload | et006-file-attachments |
-| ET007   | Expense creation (Draft/Submit), expense number generation, validation, workflow initialization   | 4.1, 6, 11  | Expenses | Planned | Expense submission  |  |
+| ET007   | Expense creation (Draft/Submit), expense number generation, validation, workflow initialization   | 4.1, 6, 11  | Expenses | In progress | Expense submission  | et007-expense-submission |
 | ET008   | Expense edit, cancel, ownership validation, read-only enforcement | 4.2–4.4, 11  | Expenses    | Planned | Expense maintenance |  |
 | ET009   | Expense query APIs, visibility filtering, pagination, sorting  | 4.4 | Expenses  | Planned | Expense viewing     |  |
 | ET010   | Manager approval/rejection workflow including rejection comments  | 5.1  | Workflow  | Planned | Manager review  |

@@ -133,3 +133,28 @@ No `/packages/shared` exists or is planned. Backend cross-cutting code lives in
 `backend/src/Shared/`; frontend cross-cutting code lives in `frontend/src/types/` and
 `frontend/src/utils/`. Frontend and backend share no code — only the REST API contract in
 `docs/SDS.md` §5.
+
+## 13. Implementation Completeness Guardrails
+
+Added after ET007 needed four `/review` passes to reach compliance — each pass fixed the
+specific thing it found, but missed that the same root cause applied more broadly. These rules
+exist to catch that broader case on the *first* pass, before `/review` runs at all.
+
+- **A rule that says "same as X" or "identical to X" is a checklist, not a phrase.** When a spec/
+  design says two things are validated/handled "the same way" (e.g., "Submit re-runs the same
+  checks as Create"; "all seven fields are mandatory"), enumerate every item that phrase covers
+  and verify each one individually against the code — don't verify one instance and assume the
+  rest follow. A fix that only handles the instance that triggered a bug report, without asking
+  "does this same root cause apply to the other N-1 cases," is not done.
+- **A design/proposal doc that goes stale during coding is itself a defect**, not acceptable
+  documentation debt to leave for later. If implementation deviates from an already-approved
+  `design.md`/`proposal.md` while coding (a type changes, a mechanism changes, a new file is
+  added), update that doc in the *same* change — before calling the ticket ready for `/review`,
+  not after a review catches the mismatch.
+- **Diff generated artifacts against your actual intent, not just against "did it run."**
+  Scaffolders (EF Core migrations, codegen, etc.) optimize for "won't break on apply," which is a
+  different goal than "matches what you designed." Read the generated output line-by-line against
+  what the design doc/ADR says before considering the task done.
+- **Before marking a ticket ready for `/review`, self-check every "handled identically" claim by
+  re-tracing both code paths side by side** — don't rely on one being a copy-paste of the other
+  staying in sync as either evolves.

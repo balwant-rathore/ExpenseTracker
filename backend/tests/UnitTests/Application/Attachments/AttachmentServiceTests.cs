@@ -21,6 +21,7 @@ public class AttachmentServiceTests
             ContentType = "application/pdf",
             FileSize = 1024,
             Content = Stream.Null,
+            UploadedByEmployeeId = Guid.NewGuid(),
         };
 
         var attachmentId = await service.UploadAsync(request, CancellationToken.None);
@@ -46,6 +47,7 @@ public class AttachmentServiceTests
             ContentType = "application/pdf",
             FileSize = 1024,
             Content = Stream.Null,
+            UploadedByEmployeeId = Guid.NewGuid(),
         };
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UploadAsync(request, CancellationToken.None));

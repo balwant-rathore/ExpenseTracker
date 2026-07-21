@@ -13,6 +13,7 @@ public class UploadAttachmentRequestValidatorTests
             ContentType = contentType,
             FileSize = fileSize,
             Content = Stream.Null,
+            UploadedByEmployeeId = Guid.NewGuid(),
         };
 
     [Theory]

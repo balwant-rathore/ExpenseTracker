@@ -1,3 +1,4 @@
+using Api.Authentication;
 using Api.Authorization;
 using Application.Attachments;
 using FluentValidation;
@@ -30,6 +31,7 @@ public class AttachmentsController : ControllerBase
             ContentType = file?.ContentType ?? string.Empty,
             FileSize = file?.Length ?? 0,
             Content = file is null ? Stream.Null : file.OpenReadStream(),
+            UploadedByEmployeeId = User.GetEmployeeId(),
         };
 
         var validation = await _validator.ValidateAsync(request, cancellationToken);
