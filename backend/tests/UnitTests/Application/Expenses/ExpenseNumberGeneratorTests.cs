@@ -1,5 +1,7 @@
+using System.Linq.Expressions;
 using Application.Expenses;
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Repositories;
 
 namespace UnitTests.Application.Expenses;
@@ -78,6 +80,41 @@ internal sealed class FakeExpenseRepository : IExpenseRepository
     {
         var conflict = Expenses.Any(e => e.Id != expense.Id && e.AttachmentId == expense.AttachmentId);
         return Task.FromResult(!conflict);
+    }
+
+    public Task<Expense?> GetByIdWithEmployeeAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(Expenses.FirstOrDefault(e => e.Id == id));
+
+    public Task<(IReadOnlyList<Expense> Items, int TotalRecords)> GetPagedAsync(
+        Expression<Func<Expense, bool>> visibilityPredicate,
+        ExpenseSortField sortBy,
+        bool descending,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var filtered = Expenses.AsQueryable().Where(visibilityPredicate);
+        var total = filtered.Count();
+
+        Func<Expense, object?> keySelector = sortBy switch
+        {
+            ExpenseSortField.ExpenseNumber => e => e.ExpenseNumber,
+            ExpenseSortField.CreatedAt => e => e.CreatedAt,
+            ExpenseSortField.Amount => e => e.Amount,
+            ExpenseSortField.SubmittedAt => e => e.SubmittedAt,
+            ExpenseSortField.ApprovedAt => e => e.ApprovedAt,
+            ExpenseSortField.ReimbursedAt => e => e.ReimbursedAt,
+            ExpenseSortField.RejectedAt => e => e.RejectedAt,
+            _ => e => e.ExpenseDate,
+        };
+
+        var ordered = descending
+            ? filtered.OrderByDescending(keySelector)
+            : filtered.OrderBy(keySelector);
+
+        var items = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        return Task.FromResult<(IReadOnlyList<Expense> Items, int TotalRecords)>((items, total));
     }
 }
 

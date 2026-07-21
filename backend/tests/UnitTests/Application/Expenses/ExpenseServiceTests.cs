@@ -280,14 +280,14 @@ public class ExpenseServiceTests
         var attachmentRepository = new FakeExpensesAttachmentRepository();
         var service = CreateService(expenseRepository, attachmentRepository);
 
-        var result = await service.GetByIdAsync(EmployeeId, expense.Id, CancellationToken.None);
+        var result = await service.GetByIdAsync(EmployeeId, EmployeeRole.Employee, expense.Id, CancellationToken.None);
 
         Assert.True(result.Succeeded);
         Assert.Equal(expense.Id, result.Expense!.Id);
     }
 
     [Fact]
-    public async Task GetByIdAsync_NonOwner_ReturnsNotOwner()
+    public async Task GetByIdAsync_NonOwner_ReturnsNotVisible()
     {
         var attachment = CreateAttachment(EmployeeId);
         var expense = CreateDraftExpense(EmployeeId, attachment.Id);
@@ -296,10 +296,10 @@ public class ExpenseServiceTests
         var attachmentRepository = new FakeExpensesAttachmentRepository();
         var service = CreateService(expenseRepository, attachmentRepository);
 
-        var result = await service.GetByIdAsync(Guid.NewGuid(), expense.Id, CancellationToken.None);
+        var result = await service.GetByIdAsync(Guid.NewGuid(), EmployeeRole.Employee, expense.Id, CancellationToken.None);
 
         Assert.False(result.Succeeded);
-        Assert.Equal(ExpenseFailureReason.NotOwner, result.FailureReason);
+        Assert.Equal(ExpenseFailureReason.NotVisible, result.FailureReason);
     }
 
     [Fact]
@@ -309,10 +309,221 @@ public class ExpenseServiceTests
         var attachmentRepository = new FakeExpensesAttachmentRepository();
         var service = CreateService(expenseRepository, attachmentRepository);
 
-        var result = await service.GetByIdAsync(EmployeeId, Guid.NewGuid(), CancellationToken.None);
+        var result = await service.GetByIdAsync(EmployeeId, EmployeeRole.Employee, Guid.NewGuid(), CancellationToken.None);
 
         Assert.False(result.Succeeded);
         Assert.Equal(ExpenseFailureReason.ExpenseNotFound, result.FailureReason);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ManagerOwnExpenseAnyStatus_ReturnsExpense()
+    {
+        var managerId = Guid.NewGuid();
+        var attachment = CreateAttachment(managerId);
+        var expense = CreateExpense(managerId, attachment.Id, ExpenseStatus.Draft);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.GetByIdAsync(managerId, EmployeeRole.Manager, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(expense.Id, result.Expense!.Id);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ManagerDirectReportsNonDraftExpense_ReturnsExpense()
+    {
+        var managerId = Guid.NewGuid();
+        var reportId = Guid.NewGuid();
+        var attachment = CreateAttachment(reportId);
+        var expense = CreateExpense(reportId, attachment.Id, ExpenseStatus.Submitted, managerId: managerId);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.GetByIdAsync(managerId, EmployeeRole.Manager, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(expense.Id, result.Expense!.Id);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ManagerDirectReportsDraftExpense_ReturnsNotVisible()
+    {
+        var managerId = Guid.NewGuid();
+        var reportId = Guid.NewGuid();
+        var attachment = CreateAttachment(reportId);
+        var expense = CreateExpense(reportId, attachment.Id, ExpenseStatus.Draft, managerId: managerId);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.GetByIdAsync(managerId, EmployeeRole.Manager, expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotVisible, result.FailureReason);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ManagerUnrelatedEmployeesExpense_ReturnsNotVisible()
+    {
+        var managerId = Guid.NewGuid();
+        var unrelatedEmployeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(unrelatedEmployeeId);
+        var expense = CreateExpense(unrelatedEmployeeId, attachment.Id, ExpenseStatus.Submitted, managerId: Guid.NewGuid());
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.GetByIdAsync(managerId, EmployeeRole.Manager, expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotVisible, result.FailureReason);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_FinanceAnyNonDraftExpense_ReturnsExpense()
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Submitted);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.GetByIdAsync(Guid.NewGuid(), EmployeeRole.Finance, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(expense.Id, result.Expense!.Id);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_FinanceDraftExpense_ReturnsNotVisible()
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Draft);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.GetByIdAsync(Guid.NewGuid(), EmployeeRole.Finance, expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotVisible, result.FailureReason);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ComplianceApprovedClientEntertainmentExpense_ReturnsExpense()
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.ClientEntertainment);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.GetByIdAsync(Guid.NewGuid(), EmployeeRole.ComplianceOfficer, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(expense.Id, result.Expense!.Id);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ComplianceComplianceApprovedClientEntertainmentExpense_ReturnsExpense()
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.ComplianceApproved, ExpenseCategory.ClientEntertainment);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.GetByIdAsync(Guid.NewGuid(), EmployeeRole.ComplianceOfficer, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(expense.Id, result.Expense!.Id);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ComplianceReimbursedClientEntertainmentExpense_ReturnsNotVisible()
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Reimbursed, ExpenseCategory.ClientEntertainment);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.GetByIdAsync(Guid.NewGuid(), EmployeeRole.ComplianceOfficer, expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotVisible, result.FailureReason);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ComplianceNonClientEntertainmentExpense_ReturnsNotVisible()
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.Travel);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.GetByIdAsync(Guid.NewGuid(), EmployeeRole.ComplianceOfficer, expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotVisible, result.FailureReason);
+    }
+
+    [Fact]
+    public async Task GetVisibleAsync_ReflectsRequestPagingAndRepositoryTotal()
+    {
+        var expenseRepository = new FakeExpenseRepository();
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        for (var i = 0; i < 3; i++)
+        {
+            var attachment = CreateAttachment(EmployeeId);
+            expenseRepository.Expenses.Add(CreateExpense(EmployeeId, attachment.Id, ExpenseStatus.Submitted));
+        }
+        var service = CreateService(expenseRepository, attachmentRepository);
+        var request = new ExpenseListRequest { Page = 1, PageSize = 10, SortBy = "expenseDate", SortDirection = "desc" };
+
+        var result = await service.GetVisibleAsync(EmployeeId, EmployeeRole.Employee, request, CancellationToken.None);
+
+        Assert.Equal(1, result.Page);
+        Assert.Equal(10, result.PageSize);
+        Assert.Equal(3, result.TotalRecords);
+        Assert.Equal(3, result.Items.Count);
+    }
+
+    [Fact]
+    public async Task GetVisibleAsync_MapsEmployeeNameFromLoadedEmployee()
+    {
+        var expenseRepository = new FakeExpenseRepository();
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var attachment = CreateAttachment(EmployeeId);
+        var expense = CreateExpense(EmployeeId, attachment.Id, ExpenseStatus.Submitted);
+        expenseRepository.Expenses.Add(expense);
+        var service = CreateService(expenseRepository, attachmentRepository);
+        var request = new ExpenseListRequest();
+
+        var result = await service.GetVisibleAsync(EmployeeId, EmployeeRole.Employee, request, CancellationToken.None);
+
+        var mapped = Assert.Single(result.Items);
+        Assert.Equal($"{expense.Employee.FirstName} {expense.Employee.LastName}", mapped.EmployeeName);
     }
 
     [Fact]
@@ -685,6 +896,40 @@ public class ExpenseServiceTests
         CreatedAt = DateTime.UtcNow,
         UpdatedAt = DateTime.UtcNow,
     };
+
+    private static Expense CreateExpense(
+        Guid employeeId,
+        Guid attachmentId,
+        ExpenseStatus status,
+        ExpenseCategory category = ExpenseCategory.Travel,
+        Guid? managerId = null) => new()
+        {
+            Id = Guid.NewGuid(),
+            ExpenseNumber = "EXP-TEST-0001",
+            EmployeeId = employeeId,
+            AttachmentId = attachmentId,
+            ExpenseDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            Category = category,
+            Amount = 100m,
+            Currency = "INR",
+            Description = "Existing expense",
+            Status = status,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            Employee = new Employee
+            {
+                EmployeeId = employeeId,
+                EmployeeNumber = "EMP-TEST",
+                FirstName = "Test",
+                LastName = "Employee",
+                Email = "test-employee@example.com",
+                Role = EmployeeRole.Employee,
+                ManagerId = managerId,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            },
+        };
 
     private static CreateExpenseRequest CreateRequest(
         Guid attachmentId, decimal amount = 100m, DateOnly? expenseDate = null, string action = "Draft") => new()

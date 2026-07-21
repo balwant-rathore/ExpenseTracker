@@ -15,4 +15,5 @@ public enum ExpenseFailureReason
     DescriptionTooLong,
     NotEditable,
     NotCancellable,
+    NotVisible,
 }
