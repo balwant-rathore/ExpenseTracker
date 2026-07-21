@@ -1105,6 +1105,197 @@ public class ExpenseServiceTests
         Assert.Equal(status, expense.Status);
     }
 
+    [Fact]
+    public async Task ComplianceApproveAsync_ApprovedClientEntertainment_TransitionsToComplianceApproved()
+    {
+        var complianceOfficerId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.ClientEntertainment);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ComplianceApproveAsync(complianceOfficerId, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("ComplianceApproved", result.Expense!.Status);
+        Assert.Equal(complianceOfficerId, expense.ComplianceApprovedByEmployeeId);
+        Assert.NotNull(expense.ComplianceApprovedAt);
+        Assert.Equal(expense.ComplianceApprovedAt, result.Expense.ComplianceApprovedAt);
+    }
+
+    [Fact]
+    public async Task ComplianceApproveAsync_NonexistentId_ReturnsExpenseNotFound()
+    {
+        var expenseRepository = new FakeExpenseRepository();
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ComplianceApproveAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.ExpenseNotFound, result.FailureReason);
+    }
+
+    [Fact]
+    public async Task ComplianceApproveAsync_NonClientEntertainmentCategory_ReturnsNotClientEntertainment()
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.Travel);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ComplianceApproveAsync(Guid.NewGuid(), expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotClientEntertainment, result.FailureReason);
+        Assert.Equal(ExpenseStatus.Approved, expense.Status);
+    }
+
+    [Theory]
+    [InlineData(ExpenseStatus.Draft)]
+    [InlineData(ExpenseStatus.Submitted)]
+    [InlineData(ExpenseStatus.ComplianceApproved)]
+    [InlineData(ExpenseStatus.Rejected)]
+    [InlineData(ExpenseStatus.Cancelled)]
+    [InlineData(ExpenseStatus.Reimbursed)]
+    public async Task ComplianceApproveAsync_NonApprovedStatus_ReturnsNotApprovedForCompliance(ExpenseStatus status)
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, status, ExpenseCategory.ClientEntertainment);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ComplianceApproveAsync(Guid.NewGuid(), expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotApprovedForCompliance, result.FailureReason);
+        Assert.Equal(status, expense.Status);
+    }
+
+    [Fact]
+    public async Task ComplianceApproveAsync_Success_SendsComplianceApprovedNotificationAfterCommit()
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.ClientEntertainment);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var notificationService = new FakeNotificationService();
+        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork(), notificationService);
+
+        var result = await service.ComplianceApproveAsync(Guid.NewGuid(), expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var notification = Assert.Single(notificationService.Notifications);
+        Assert.Equal(NotificationEvent.ComplianceApproved, notification.Event);
+    }
+
+    [Fact]
+    public async Task ComplianceRejectAsync_ApprovedClientEntertainment_TransitionsToRejected_SetsRejectionComment()
+    {
+        var complianceOfficerId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.ClientEntertainment);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ComplianceRejectAsync(complianceOfficerId, expense.Id, new RejectExpenseRequest { RejectionComment = "Exceeds per-person entertainment limit" }, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Rejected", result.Expense!.Status);
+        Assert.Equal(ExpenseStatus.Rejected, expense.Status);
+        Assert.Equal(complianceOfficerId, expense.RejectedByEmployeeId);
+        Assert.NotNull(expense.RejectedAt);
+        Assert.Equal("Exceeds per-person entertainment limit", expense.RejectionComment);
+    }
+
+    [Fact]
+    public async Task ComplianceRejectAsync_NonexistentId_ReturnsExpenseNotFound()
+    {
+        var expenseRepository = new FakeExpenseRepository();
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ComplianceRejectAsync(Guid.NewGuid(), Guid.NewGuid(), new RejectExpenseRequest { RejectionComment = "Comment" }, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.ExpenseNotFound, result.FailureReason);
+    }
+
+    [Fact]
+    public async Task ComplianceRejectAsync_NonClientEntertainmentCategory_ReturnsNotClientEntertainment()
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.Meals);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ComplianceRejectAsync(Guid.NewGuid(), expense.Id, new RejectExpenseRequest { RejectionComment = "Comment" }, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotClientEntertainment, result.FailureReason);
+        Assert.Equal(ExpenseStatus.Approved, expense.Status);
+    }
+
+    [Theory]
+    [InlineData(ExpenseStatus.Draft)]
+    [InlineData(ExpenseStatus.Submitted)]
+    [InlineData(ExpenseStatus.ComplianceApproved)]
+    [InlineData(ExpenseStatus.Rejected)]
+    [InlineData(ExpenseStatus.Cancelled)]
+    [InlineData(ExpenseStatus.Reimbursed)]
+    public async Task ComplianceRejectAsync_NonApprovedStatus_ReturnsNotApprovedForCompliance(ExpenseStatus status)
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, status, ExpenseCategory.ClientEntertainment);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.ComplianceRejectAsync(Guid.NewGuid(), expense.Id, new RejectExpenseRequest { RejectionComment = "Comment" }, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ExpenseFailureReason.NotApprovedForCompliance, result.FailureReason);
+        Assert.Equal(status, expense.Status);
+    }
+
+    [Fact]
+    public async Task ComplianceRejectAsync_Success_SendsComplianceRejectedNotificationAfterCommit()
+    {
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.ClientEntertainment);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var notificationService = new FakeNotificationService();
+        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork(), notificationService);
+
+        var result = await service.ComplianceRejectAsync(Guid.NewGuid(), expense.Id, new RejectExpenseRequest { RejectionComment = "Comment" }, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var notification = Assert.Single(notificationService.Notifications);
+        Assert.Equal(NotificationEvent.ComplianceRejected, notification.Event);
+    }
+
     private static UpdateExpenseRequest UpdateRequest(
         Guid attachmentId, decimal amount = 100m, DateOnly? expenseDate = null, string description = "Updated expense") => new()
         {

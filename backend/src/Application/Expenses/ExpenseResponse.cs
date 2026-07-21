@@ -11,6 +11,7 @@ public record ExpenseResponse(
     string Status,
     DateTime? SubmittedAt,
     DateTime? ApprovedAt,
+    DateTime? ComplianceApprovedAt,
     DateTime? RejectedAt,
     string? RejectionComment,
     DateTime CreatedAt,
