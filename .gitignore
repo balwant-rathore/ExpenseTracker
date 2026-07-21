@@ -22,3 +22,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Locally uploaded attachments (runtime data, not source)
+backend/src/Api/storage/

@@ -106,6 +106,34 @@ public class RoleBasedAuthorizationTests : IClassFixture<CustomWebApplicationFac
         Assert.Contains("AUTHORIZATION_FAILED", body);
     }
 
+    [Theory]
+    [InlineData(EmployeeRole.Employee)]
+    [InlineData(EmployeeRole.Manager)]
+    public async Task EmployeeOrManagerOnly_MatchingRole_IsAuthorized(EmployeeRole role)
+    {
+        var (userId, _) = await CreateEmployeeAndUserAsync(role);
+        var client = CreateAuthorizedClient(GenerateToken(userId));
+
+        var response = await client.GetAsync("/__test/employee-or-manager-only");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(EmployeeRole.Finance)]
+    [InlineData(EmployeeRole.ComplianceOfficer)]
+    public async Task EmployeeOrManagerOnly_NonMatchingRole_Returns403WithEnvelope(EmployeeRole role)
+    {
+        var (userId, _) = await CreateEmployeeAndUserAsync(role);
+        var client = CreateAuthorizedClient(GenerateToken(userId));
+
+        var response = await client.GetAsync("/__test/employee-or-manager-only");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("AUTHORIZATION_FAILED", body);
+    }
+
     private HttpClient CreateAuthorizedClient(string token)
     {
         var client = _factory.CreateClient();
