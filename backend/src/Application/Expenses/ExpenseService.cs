@@ -369,6 +369,86 @@ public class ExpenseService : IExpenseService
         return ExpenseResult.Success(Map(expense));
     }
 
+    public async Task<ExpenseResult> ComplianceApproveAsync(Guid complianceOfficerId, Guid expenseId, CancellationToken cancellationToken)
+    {
+        var expense = await _expenseRepository.GetByIdAsync(expenseId, cancellationToken);
+        if (expense is null)
+        {
+            return ExpenseResult.Failure(ExpenseFailureReason.ExpenseNotFound);
+        }
+
+        var reviewFailure = CanComplianceReview(expense);
+        if (reviewFailure is not null)
+        {
+            return ExpenseResult.Failure(reviewFailure.Value);
+        }
+
+        var now = DateTime.UtcNow;
+        expense.Status = ExpenseStatus.ComplianceApproved;
+        expense.ComplianceApprovedAt = now;
+        expense.ComplianceApprovedByEmployeeId = complianceOfficerId;
+        expense.UpdatedAt = now;
+
+        await _unitOfWork.ExecuteInTransactionAsync(
+            () => _unitOfWork.SaveChangesAsync(cancellationToken),
+            cancellationToken);
+
+        await _notificationService.NotifyAsync(NotificationEvent.ComplianceApproved, expense, cancellationToken);
+
+        return ExpenseResult.Success(Map(expense));
+    }
+
+    public async Task<ExpenseResult> ComplianceRejectAsync(Guid complianceOfficerId, Guid expenseId, RejectExpenseRequest request, CancellationToken cancellationToken)
+    {
+        var expense = await _expenseRepository.GetByIdAsync(expenseId, cancellationToken);
+        if (expense is null)
+        {
+            return ExpenseResult.Failure(ExpenseFailureReason.ExpenseNotFound);
+        }
+
+        var reviewFailure = CanComplianceReview(expense);
+        if (reviewFailure is not null)
+        {
+            return ExpenseResult.Failure(reviewFailure.Value);
+        }
+
+        var now = DateTime.UtcNow;
+        expense.Status = ExpenseStatus.Rejected;
+        expense.RejectedAt = now;
+        expense.RejectedByEmployeeId = complianceOfficerId;
+        // RejectionComment is non-null, non-empty by this point: the controller always runs
+        // RejectExpenseRequestValidator (which rejects null/empty/whitespace/oversized values)
+        // before calling ComplianceRejectAsync.
+        expense.RejectionComment = request.RejectionComment!;
+        expense.UpdatedAt = now;
+
+        await _unitOfWork.ExecuteInTransactionAsync(
+            () => _unitOfWork.SaveChangesAsync(cancellationToken),
+            cancellationToken);
+
+        await _notificationService.NotifyAsync(NotificationEvent.ComplianceRejected, expense, cancellationToken);
+
+        return ExpenseResult.Success(Map(expense));
+    }
+
+    // Category is checked before status (design.md D1): these are two independently-tested
+    // business rules, not one combined check. A non-ClientEntertainment expense always fails
+    // on category regardless of its status, even though it might otherwise be Approved.
+    private static ExpenseFailureReason? CanComplianceReview(Expense expense)
+    {
+        if (expense.Category != ExpenseCategory.ClientEntertainment)
+        {
+            return ExpenseFailureReason.NotClientEntertainment;
+        }
+
+        if (expense.Status != ExpenseStatus.Approved)
+        {
+            return ExpenseFailureReason.NotApprovedForCompliance;
+        }
+
+        return null;
+    }
+
     // BR-06: a Manager can never review their own expense. Otherwise a Manager reviews an
     // expense iff they are the owner's ManagerId - this single check already covers both
     // "owner is a regular Employee" and "owner is itself a Manager who cannot self-review"
@@ -403,6 +483,7 @@ public class ExpenseService : IExpenseService
             expense.Status.ToString(),
             expense.SubmittedAt,
             expense.ApprovedAt,
+            expense.ComplianceApprovedAt,
             expense.RejectedAt,
             expense.RejectionComment,
             expense.CreatedAt,

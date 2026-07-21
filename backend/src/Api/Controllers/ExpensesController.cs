@@ -154,6 +154,38 @@ public class ExpensesController : ControllerBase
         return Ok(new ExpenseEnvelopeResponse(result.Expense!));
     }
 
+    [HttpPost("{id:guid}/compliance-approve")]
+    [Authorize(Policy = AuthorizationPolicyNames.ComplianceOfficer)]
+    public async Task<IActionResult> ComplianceApprove(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _expenseService.ComplianceApproveAsync(User.GetEmployeeId(), id, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return FailureResult(result.FailureReason);
+        }
+
+        return Ok(new ExpenseEnvelopeResponse(result.Expense!));
+    }
+
+    [HttpPost("{id:guid}/compliance-reject")]
+    [Authorize(Policy = AuthorizationPolicyNames.ComplianceOfficer)]
+    public async Task<IActionResult> ComplianceReject(Guid id, RejectExpenseRequest request, CancellationToken cancellationToken)
+    {
+        var validation = await _rejectValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return ValidationErrorResult(validation);
+        }
+
+        var result = await _expenseService.ComplianceRejectAsync(User.GetEmployeeId(), id, request, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return FailureResult(result.FailureReason);
+        }
+
+        return Ok(new ExpenseEnvelopeResponse(result.Expense!));
+    }
+
     private IActionResult ValidationErrorResult(FluentValidation.Results.ValidationResult validation)
     {
         var fields = validation.Errors.Select(e => e.PropertyName).Distinct().ToList();
@@ -241,6 +273,16 @@ public class ExpensesController : ControllerBase
             ExpenseFailureReason.NotAuthorizedReviewer => StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse(new ErrorDetail(
                 "AUTHORIZATION_FAILED",
                 "You do not have permission to perform this action.",
+                [],
+                HttpContext.TraceIdentifier))),
+            ExpenseFailureReason.NotClientEntertainment => StatusCode(StatusCodes.Status422UnprocessableEntity, new ErrorResponse(new ErrorDetail(
+                "BUSINESS_RULE_VIOLATION",
+                "Only Client Entertainment expenses can be reviewed by Compliance.",
+                [],
+                HttpContext.TraceIdentifier))),
+            ExpenseFailureReason.NotApprovedForCompliance => StatusCode(StatusCodes.Status422UnprocessableEntity, new ErrorResponse(new ErrorDetail(
+                "BUSINESS_RULE_VIOLATION",
+                "Only expenses in Approved status can be compliance-reviewed.",
                 [],
                 HttpContext.TraceIdentifier))),
             _ => StatusCode(StatusCodes.Status500InternalServerError),

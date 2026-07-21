@@ -6,4 +6,6 @@ public enum NotificationEvent
     Approved,
     Rejected,
     Reimbursed,
+    ComplianceApproved,
+    ComplianceRejected,
 }

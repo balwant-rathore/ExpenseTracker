@@ -18,4 +18,6 @@ public enum ExpenseFailureReason
     NotVisible,
     NotSubmitted,
     NotAuthorizedReviewer,
+    NotClientEntertainment,
+    NotApprovedForCompliance,
 }
