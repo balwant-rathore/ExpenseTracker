@@ -5,14 +5,12 @@ this file covers only how to work inside this project.
 
 ## Commands (run from `frontend/`)
 
+Standard scripts (`dev`, `build`, `test`, `lint`) are in `package.json`. Non-obvious ones:
+
 ```bash
-pnpm dev                 # Vite dev server
-pnpm build                # production build
-pnpm test                 # Vitest component tests
 pnpm test -- --watch      # watch mode
-pnpm lint                 # oxlint
-pnpm exec tsc --noEmit    # type-check only
-npx playwright test       # E2E (repo/workspace root)
+pnpm exec tsc --noEmit    # type-check only (not a package.json script)
+npx playwright test       # E2E — run from repo/workspace root, not frontend/
 ```
 
 ## Component & State Management Patterns

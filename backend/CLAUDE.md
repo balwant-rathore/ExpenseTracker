@@ -41,6 +41,38 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;
 - Wrap multi-step state changes (e.g. approve → set audit fields → persist) in a single
   `DbContext` SaveChanges transaction; enqueue the notification only after that commit succeeds.
 
+## Auth Approach
+
+(Moved from `AGENTS.md` §7 — backend-only concern; frontend only calls the `/api/auth/*`
+endpoints, per `docs/SDS.md` §5.1.)
+
+- JWT access token: HS256, 15 min, claim is `sub` (UserId) only — no roles embedded. Refresh
+  token: random, 7-day, stored server-side as SHA-256 hash only, **rotated on every use**; reuse
+  of a revoked token invalidates all of that user's refresh tokens.
+- Role is never trusted from the token — middleware resolves the user, loads their `Employee`
+  record, and derives role on **every** request.
+- BCrypt password hashing; policy: min 8 chars, ≥1 letter, ≥1 digit.
+- Registration requires `email` + `password` + `employeeId` matched against a pre-seeded
+  `Employee` record — no self-service employee creation, no social login.
+- Password reset: 6-digit OTP, SHA-256 hashed, 10-min expiry, single-use, new OTP invalidates
+  prior one, logged to console only (no real email). Successful reset revokes all refresh tokens.
+- Auth errors are generic — never reveal which field failed or whether an account exists.
+- Rate limiting on `register`, `login`, `forgot-password`, `reset-password` → `429` over the limit.
+
+## DB Schema Summary
+
+(Moved from `AGENTS.md` §9 — backend-only concern. Full definitions: `docs/SDS.md` §3.
+Enum values and workflow rules stay in the root `AGENTS.md` since frontend needs them too.)
+
+- **Employee** — CSV-seeded, read-only after setup, no CRUD API, self-references `ManagerId`.
+- **User** — 1:1 Employee, unique case-insensitive `Email`, `PasswordHash`.
+- **RefreshToken** / **PasswordResetOtp** — 1:many from User, hashes only, expiry/used tracking.
+- **Expense** — 1:many from Employee, 1:1 Attachment. `ExpenseNumber` = `EXP-yyyyMMdd-XXXX`
+  (backend-generated, immutable). Full audit trail (`SubmittedAt/ApprovedAt/...By...Id/
+  RejectionComment`) — system-managed only, never client-editable.
+- **Attachment** — 1:1 Expense, metadata + `StoragePath` only (file on disk), max 10 MB,
+  PDF/JPG/PNG only.
+
 ## Anti-Patterns to Avoid
 
 - Don't return `Domain` entities from controllers — always map to an `Application`-layer DTO.
