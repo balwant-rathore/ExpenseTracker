@@ -19,8 +19,8 @@ linked GitHub issue
 | ET008   | Expense edit, cancel, ownership validation, read-only enforcement | 4.2–4.4, 11  | Expenses    | Done | [#8](https://github.com/balwant-rathore/ExpenseTracker/pull/8) | et008-expense-management |
 | ET009   | Expense query APIs, visibility filtering, pagination, sorting  | 4.4 | Expenses  | Done | [#9](https://github.com/balwant-rathore/ExpenseTracker/pull/9) | et009-expenses-view |
 | ET010   | Manager approval/rejection workflow including rejection comments  | 5.1  | Workflow  | Done | [#10](https://github.com/balwant-rathore/ExpenseTracker/pull/10) | et010-manager-review |
-| ET011   | Compliance approval/rejection workflow for Client Entertainment   | 5.2   | Workflow       | PR open (#11) | [#11](https://github.com/balwant-rathore/ExpenseTracker/pull/11) | et011-compliance-review |
-| ET012   | Finance search, reimbursement workflow, reimbursement export APIs   | 7  | Finance        | Planned | Finance processing  |  |
+| ET011   | Compliance approval/rejection workflow for Client Entertainment   | 5.2   | Workflow       | Done | [#11](https://github.com/balwant-rathore/ExpenseTracker/pull/11) | et011-compliance-review |
+| ET012   | Finance search, reimbursement workflow, reimbursement export APIs   | 7  | Finance        | PR open (#12) | [#12](https://github.com/balwant-rathore/ExpenseTracker/pull/12) | et012-finance-processing |
 | ET013   | Dashboard aggregation APIs for Employee, Manager and Finance  | 8  | Dashboard      | Planned | Dashboard metrics   |  |
 | ET014   | Monthly reimbursement Excel generation using ClosedXML  | 10   | Reporting      | Planned | Reporting  |  |
 | ET015   | HTML notification logging, notification templates, post-commit notification service | 9  | Notifications  | Planned | Notifications  |  |

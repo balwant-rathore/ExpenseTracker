@@ -109,6 +109,91 @@ public class ExpenseRepository : Repository<Expense>, IExpenseRepository
         return (items, totalRecords);
     }
 
+    public async Task<(IReadOnlyList<Expense> Items, int TotalRecords)> SearchPagedAsync(
+        string? expenseNumber,
+        string? employeeName,
+        ExpenseCategory? category,
+        ExpenseStatus? status,
+        DateTime? createdFromUtc,
+        DateTime? createdToUtc,
+        ExpenseSortField sortBy,
+        bool descending,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        // Draft is excluded unconditionally (Finance's default visibility, ET009) - even
+        // when status=Draft is explicitly requested, combining with AND below always
+        // yields an empty result rather than bypassing the exclusion.
+        var filtered = DbContext.Expenses.Where(e => e.Status != ExpenseStatus.Draft);
+
+        if (!string.IsNullOrWhiteSpace(expenseNumber))
+        {
+            filtered = filtered.Where(e => e.ExpenseNumber == expenseNumber);
+        }
+
+        if (!string.IsNullOrWhiteSpace(employeeName))
+        {
+            filtered = filtered.Where(e => (e.Employee.FirstName + " " + e.Employee.LastName).Contains(employeeName));
+        }
+
+        if (category.HasValue)
+        {
+            filtered = filtered.Where(e => e.Category == category.Value);
+        }
+
+        if (status.HasValue)
+        {
+            filtered = filtered.Where(e => e.Status == status.Value);
+        }
+
+        if (createdFromUtc.HasValue)
+        {
+            filtered = filtered.Where(e => e.CreatedAt >= createdFromUtc.Value);
+        }
+
+        if (createdToUtc.HasValue)
+        {
+            filtered = filtered.Where(e => e.CreatedAt <= createdToUtc.Value);
+        }
+
+        var totalRecords = await filtered.CountAsync(cancellationToken);
+
+        var sorted = sortBy switch
+        {
+            ExpenseSortField.ExpenseNumber => OrderBy(filtered, e => e.ExpenseNumber, descending),
+            ExpenseSortField.CreatedAt => OrderBy(filtered, e => e.CreatedAt, descending),
+            ExpenseSortField.Amount => OrderBy(filtered, e => e.Amount, descending),
+            ExpenseSortField.SubmittedAt => OrderBy(filtered, e => e.SubmittedAt, descending),
+            ExpenseSortField.ApprovedAt => OrderBy(filtered, e => e.ApprovedAt, descending),
+            ExpenseSortField.ReimbursedAt => OrderBy(filtered, e => e.ReimbursedAt, descending),
+            ExpenseSortField.RejectedAt => OrderBy(filtered, e => e.RejectedAt, descending),
+            _ => OrderBy(filtered, e => e.ExpenseDate, descending),
+        };
+
+        var items = await sorted
+            .Include(e => e.Employee)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalRecords);
+    }
+
+    public async Task<IReadOnlyList<Expense>> GetReimbursedForReportAsync(
+        DateTime rangeStartUtcInclusive,
+        DateTime rangeEndUtcExclusive,
+        CancellationToken cancellationToken)
+    {
+        return await DbContext.Expenses
+            .Include(e => e.Employee)
+            .Where(e => e.Status == ExpenseStatus.Reimbursed
+                && e.ReimbursedAt >= rangeStartUtcInclusive
+                && e.ReimbursedAt < rangeEndUtcExclusive)
+            .OrderBy(e => e.ReimbursedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     private static IOrderedQueryable<Expense> OrderBy<TKey>(
         IQueryable<Expense> query,
         Expression<Func<Expense, TKey>> keySelector,

@@ -207,6 +207,64 @@ public class ExpenseService : IExpenseService
         return new PagedExpenseResponse(items.Select(Map).ToList(), request.Page, request.PageSize, totalRecords);
     }
 
+    public async Task<ExpenseResult> ReimburseAsync(Guid financeEmployeeId, Guid expenseId, CancellationToken cancellationToken)
+    {
+        var expense = await _expenseRepository.GetByIdWithEmployeeAsync(expenseId, cancellationToken);
+        if (expense is null)
+        {
+            return ExpenseResult.Failure(ExpenseFailureReason.ExpenseNotFound);
+        }
+
+        if (!IsEligibleForReimbursement(expense))
+        {
+            return ExpenseResult.Failure(ExpenseFailureReason.NotEligibleForReimbursement);
+        }
+
+        var now = DateTime.UtcNow;
+        expense.Status = ExpenseStatus.Reimbursed;
+        expense.ReimbursedAt = now;
+        expense.ReimbursedByEmployeeId = financeEmployeeId;
+        expense.UpdatedAt = now;
+
+        await _unitOfWork.ExecuteInTransactionAsync(
+            () => _unitOfWork.SaveChangesAsync(cancellationToken),
+            cancellationToken);
+
+        await _notificationService.NotifyAsync(NotificationEvent.Reimbursed, expense, cancellationToken);
+
+        return ExpenseResult.Success(Map(expense));
+    }
+
+    public async Task<PagedExpenseResponse> SearchAsync(ExpenseSearchRequest request, CancellationToken cancellationToken)
+    {
+        // Category/Status/SortBy/SortDirection are null or valid values by this point: the
+        // controller always runs ExpenseSearchRequestValidator before calling SearchAsync.
+        var category = request.Category is null ? (ExpenseCategory?)null : Enum.Parse<ExpenseCategory>(request.Category, ignoreCase: true);
+        var status = request.Status is null ? (ExpenseStatus?)null : Enum.Parse<ExpenseStatus>(request.Status, ignoreCase: true);
+        var sortField = Enum.Parse<ExpenseSortField>(request.SortBy, ignoreCase: true);
+        var descending = string.Equals(request.SortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+
+        // FromDate/ToDate are treated as UTC calendar-day bounds, matching how CreatedAt is
+        // written (DateTime.UtcNow, not company-timezone-converted) - design.md D4.
+        var createdFromUtc = request.FromDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var createdToUtc = request.ToDate?.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+
+        var (items, totalRecords) = await _expenseRepository.SearchPagedAsync(
+            request.ExpenseNumber,
+            request.EmployeeName,
+            category,
+            status,
+            createdFromUtc,
+            createdToUtc,
+            sortField,
+            descending,
+            request.Page,
+            request.PageSize,
+            cancellationToken);
+
+        return new PagedExpenseResponse(items.Select(Map).ToList(), request.Page, request.PageSize, totalRecords);
+    }
+
     public async Task<ExpenseResult> UpdateAsync(Guid employeeId, Guid expenseId, UpdateExpenseRequest request, CancellationToken cancellationToken)
     {
         var expense = await _expenseRepository.GetByIdAsync(expenseId, cancellationToken);
@@ -449,6 +507,15 @@ public class ExpenseService : IExpenseService
         return null;
     }
 
+    // Category-conditioned per design.md D2, reconciling FRS §7.1.3's literal "Approved or
+    // Compliance Approved" against the two distinct SDS §6.1/§6.3 workflow paths: a
+    // ClientEntertainment expense must clear Compliance review first, so it is only
+    // reimbursable once ComplianceApproved; every other category is reimbursable straight
+    // from Approved.
+    private static bool IsEligibleForReimbursement(Expense expense) => expense.Category == ExpenseCategory.ClientEntertainment
+        ? expense.Status == ExpenseStatus.ComplianceApproved
+        : expense.Status == ExpenseStatus.Approved;
+
     // BR-06: a Manager can never review their own expense. Otherwise a Manager reviews an
     // expense iff they are the owner's ManagerId - this single check already covers both
     // "owner is a regular Employee" and "owner is itself a Manager who cannot self-review"
@@ -486,6 +553,7 @@ public class ExpenseService : IExpenseService
             expense.ComplianceApprovedAt,
             expense.RejectedAt,
             expense.RejectionComment,
+            expense.ReimbursedAt,
             expense.CreatedAt,
             employeeName);
     }

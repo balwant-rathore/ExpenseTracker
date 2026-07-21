@@ -21,4 +21,22 @@ public interface IExpenseRepository : IRepository<Expense>
         int pageSize,
         ExpenseStatus? statusFilter,
         CancellationToken cancellationToken);
+
+    Task<(IReadOnlyList<Expense> Items, int TotalRecords)> SearchPagedAsync(
+        string? expenseNumber,
+        string? employeeName,
+        ExpenseCategory? category,
+        ExpenseStatus? status,
+        DateTime? createdFromUtc,
+        DateTime? createdToUtc,
+        ExpenseSortField sortBy,
+        bool descending,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Expense>> GetReimbursedForReportAsync(
+        DateTime rangeStartUtcInclusive,
+        DateTime rangeEndUtcExclusive,
+        CancellationToken cancellationToken);
 }

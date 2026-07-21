@@ -14,5 +14,6 @@ public record ExpenseResponse(
     DateTime? ComplianceApprovedAt,
     DateTime? RejectedAt,
     string? RejectionComment,
+    DateTime? ReimbursedAt,
     DateTime CreatedAt,
     string? EmployeeName);
