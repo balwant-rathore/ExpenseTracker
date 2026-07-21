@@ -73,6 +73,12 @@ internal sealed class FakeExpenseRepository : IExpenseRepository
         Expenses.Add(expense);
         return Task.FromResult(ExpenseInsertOutcome.Success);
     }
+
+    public Task<bool> TryUpdateAsync(Expense expense, CancellationToken cancellationToken)
+    {
+        var conflict = Expenses.Any(e => e.Id != expense.Id && e.AttachmentId == expense.AttachmentId);
+        return Task.FromResult(!conflict);
+    }
 }
 
 internal sealed class FakeCompanyClock : ICompanyClock

@@ -13,4 +13,6 @@ public enum ExpenseFailureReason
     NotDraft,
     CurrencyInvalid,
     DescriptionTooLong,
+    NotEditable,
+    NotCancellable,
 }
