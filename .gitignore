@@ -25,3 +25,8 @@ Thumbs.db
 
 # Locally uploaded attachments (runtime data, not source)
 backend/src/Api/storage/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
