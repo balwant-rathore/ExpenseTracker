@@ -12,6 +12,7 @@ public interface IExpenseRepository : IRepository<Expense>
     Task<ExpenseInsertOutcome> TryAddAsync(Expense expense, CancellationToken cancellationToken);
     Task<bool> TryUpdateAsync(Expense expense, CancellationToken cancellationToken);
     Task<Expense?> GetByIdWithEmployeeAsync(Guid id, CancellationToken cancellationToken);
+    Task<Expense?> GetByAttachmentIdWithEmployeeAsync(Guid attachmentId, CancellationToken cancellationToken);
 
     Task<(IReadOnlyList<Expense> Items, int TotalRecords)> GetPagedAsync(
         Expression<Func<Expense, bool>> visibilityPredicate,

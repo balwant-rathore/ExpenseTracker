@@ -85,6 +85,9 @@ internal sealed class FakeExpenseRepository : IExpenseRepository
     public Task<Expense?> GetByIdWithEmployeeAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(Expenses.FirstOrDefault(e => e.Id == id));
 
+    public Task<Expense?> GetByAttachmentIdWithEmployeeAsync(Guid attachmentId, CancellationToken cancellationToken) =>
+        Task.FromResult(Expenses.FirstOrDefault(e => e.AttachmentId == attachmentId));
+
     public Task<(IReadOnlyList<Expense> Items, int TotalRecords)> GetPagedAsync(
         Expression<Func<Expense, bool>> visibilityPredicate,
         ExpenseSortField sortBy,

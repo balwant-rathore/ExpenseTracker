@@ -9,6 +9,7 @@ import { ExpenseDetailPage } from '@/pages/ExpenseDetailPage'
 import { CreateExpensePage } from '@/pages/CreateExpensePage'
 import { EditExpensePage } from '@/pages/EditExpensePage'
 import { FinanceSearchPage } from '@/pages/FinanceSearchPage'
+import { MonthlyReportPage } from '@/pages/MonthlyReportPage'
 import { AppLayout } from '@/layouts/AppLayout'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RequireRole } from './RequireRole'
@@ -50,6 +51,14 @@ const router = createBrowserRouter([
         element: (
           <RequireRole allowedRoles={['Finance']}>
             <FinanceSearchPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: '/reports/monthly-reimbursement',
+        element: (
+          <RequireRole allowedRoles={['Finance']}>
+            <MonthlyReportPage />
           </RequireRole>
         ),
       },

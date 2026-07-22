@@ -4,13 +4,14 @@ using Application.Attachments;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using Shared.ErrorHandling;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/attachments")]
-[Authorize(Policy = AuthorizationPolicyNames.EmployeeOrManager)]
+[Authorize]
 public class AttachmentsController : ControllerBase
 {
     private readonly IAttachmentService _attachmentService;
@@ -23,6 +24,7 @@ public class AttachmentsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicyNames.EmployeeOrManager)]
     public async Task<IActionResult> Upload(IFormFile file, CancellationToken cancellationToken)
     {
         var request = new UploadAttachmentRequest
@@ -42,6 +44,27 @@ public class AttachmentsController : ControllerBase
 
         var attachmentId = await _attachmentService.UploadAsync(request, cancellationToken);
         return StatusCode(StatusCodes.Status201Created, new AttachmentUploadResponse(attachmentId));
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> Download(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _attachmentService.DownloadAsync(
+            User.GetEmployeeId(), User.GetRole(), id, cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return result.FailureReason == AttachmentDownloadFailureReason.AttachmentNotFound
+                ? NotFound(new ErrorResponse(new ErrorDetail(
+                    "RESOURCE_NOT_FOUND", "Attachment not found.", [], HttpContext.TraceIdentifier)))
+                : StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse(new ErrorDetail(
+                    "AUTHORIZATION_FAILED", "You do not have permission to perform this action.", [], HttpContext.TraceIdentifier)));
+        }
+
+        var contentDisposition = new ContentDispositionHeaderValue("inline");
+        contentDisposition.SetHttpFileName(result.OriginalFileName);
+        Response.Headers.ContentDisposition = contentDisposition.ToString();
+        return File(result.Content!, result.ContentType!);
     }
 
     private IActionResult ValidationErrorResult(FluentValidation.Results.ValidationResult validation)

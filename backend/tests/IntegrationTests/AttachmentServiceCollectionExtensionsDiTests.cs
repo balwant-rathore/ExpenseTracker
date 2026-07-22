@@ -24,6 +24,7 @@ public class AttachmentServiceCollectionExtensionsDiTests
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer("Server=unused;Database=unused;"));
         services.AddScoped<IAttachmentRepository, AttachmentRepository>();
+        services.AddScoped<IExpenseRepository, ExpenseRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddSingleton<IHostEnvironment>(new FakeHostEnvironment { ContentRootPath = Path.GetTempPath() });
         services.AddLogging();

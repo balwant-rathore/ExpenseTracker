@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/apiClient'
+import { apiRequest, apiRequestBlob, type BlobResponse } from '@/lib/apiClient'
 
 export interface AttachmentUploadResponse {
   attachmentId: string
@@ -12,4 +12,8 @@ export function uploadAttachment(file: File, accessToken?: string | null): Promi
     body: formData,
     accessToken,
   })
+}
+
+export function viewAttachment(id: string, accessToken?: string | null): Promise<BlobResponse> {
+  return apiRequestBlob(`/attachments/${id}`, { accessToken })
 }

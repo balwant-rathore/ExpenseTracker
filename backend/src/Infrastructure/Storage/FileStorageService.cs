@@ -45,6 +45,12 @@ public class FileStorageService : IFileStorageService
         return Task.CompletedTask;
     }
 
+    public Task<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken)
+    {
+        var absolutePath = ToAbsolutePath(relativePath);
+        return Task.FromResult<Stream>(new FileStream(absolutePath, FileMode.Open, FileAccess.Read));
+    }
+
     private string ToAbsolutePath(string relativePath)
     {
         var segments = relativePath.Split('/');
