@@ -632,6 +632,7 @@ HTTP 429 Too Many Requests
 | `POST /api/auth/logout` | Yes | `refreshToken` | `204 No Content` | 401 |
 | `POST /api/auth/forgot-password` | No | `email` | `200 OK` | 400, 429 |
 | `POST /api/auth/reset-password` | No | `email`, `otp`, `newPassword` | `200 OK` | 400, 401, 410, 429 |
+| `GET /api/auth/me` | Yes | — | `200 OK` → UserDto | 401 |
 
 **User Registration Notes**
 - User registration validates an existing Employee Number against the supplied employeeId in registration request and creates only the User account.

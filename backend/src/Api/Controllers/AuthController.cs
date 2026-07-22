@@ -148,6 +148,20 @@ public class AuthController : ControllerBase
         return Ok();
     }
 
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<IActionResult> Me(CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        var userDto = await _authService.GetCurrentUserAsync(userId, cancellationToken);
+        if (userDto is null)
+        {
+            return FailureResult(AuthFailureReason.RefreshTokenInvalid);
+        }
+
+        return Ok(userDto);
+    }
+
     private IActionResult ValidationErrorResult(FluentValidation.Results.ValidationResult validation)
     {
         var fields = validation.Errors.Select(e => e.PropertyName).Distinct().ToList();

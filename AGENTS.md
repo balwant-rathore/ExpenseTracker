@@ -78,6 +78,7 @@ Full JWT/refresh-token/OTP design detail moved to `backend/CLAUDE.md` §Auth App
 - Pagination/sorting are server-side always (per-endpoint defaults in `docs/SDS.md` §5.2/§5.4).
 - Key endpoints (full contracts in `docs/SDS.md` §5):
   - `POST /api/auth/{register,login,refresh,logout,forgot-password,reset-password}`
+  - `GET /api/auth/me`
   - `POST /api/expenses`, `GET /api/expenses`, `GET/PUT /api/expenses/{id}`
   - `POST /api/expenses/{id}/{submit,cancel,approve,reject,compliance-approve,compliance-reject,reimburse}`
   - `POST /api/attachments` (multipart, returns `attachmentId` used at expense create)
