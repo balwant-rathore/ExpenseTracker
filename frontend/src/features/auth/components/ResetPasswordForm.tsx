@@ -34,6 +34,8 @@ export function ResetPasswordForm() {
   const apiError = resetPasswordMutation.error
   const expiredMessage = apiError?.code === 'RESOURCE_EXPIRED' ? apiError.message : null
   const invalidOtpMessage = apiError?.code === 'AUTHENTICATION_FAILED' ? apiError.message : null
+  const rateLimitMessage =
+    apiError?.code === 'RATE_LIMIT_EXCEEDED' ? 'Too many attempts. Please try again later.' : null
   const newPasswordApiError =
     apiError?.code === 'VALIDATION_ERROR' && hasFieldError(apiError.fields, 'newPassword')
       ? { message: apiError.message }
@@ -99,6 +101,11 @@ export function ResetPasswordForm() {
         {invalidOtpMessage && (
           <p role="alert" className="text-sm text-destructive">
             {invalidOtpMessage}
+          </p>
+        )}
+        {rateLimitMessage && (
+          <p role="alert" className="text-sm text-destructive">
+            {rateLimitMessage}
           </p>
         )}
         <Button type="submit" disabled={resetPasswordMutation.isPending}>

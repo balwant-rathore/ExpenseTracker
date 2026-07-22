@@ -120,4 +120,22 @@ describe('ResetPasswordForm', () => {
       await screen.findByText('Password does not meet complexity requirements.'),
     ).toBeInTheDocument()
   })
+
+  it('shows a generic throttling message on a 429 response', async () => {
+    // FRS §3.5.4: reset-password is rate-limited the same as the other three auth endpoints —
+    // gap caught by /review (the original spec delta never listed this scenario).
+    vi.spyOn(authApi, 'resetPassword').mockRejectedValue({
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many requests.',
+      fields: [],
+      traceId: 't',
+    })
+
+    renderWithProviders(<ResetPasswordForm />)
+    fillValidForm()
+    fireEvent.click(screen.getByRole('button', { name: /reset password/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Too many attempts')
+  })
 })

@@ -78,6 +78,26 @@ describe('RegistrationForm', () => {
     ).toBeInTheDocument()
   })
 
+  it('renders a 400 with multiple simultaneously-invalid fields, matching the backend\'s actual PascalCase FluentValidation property names', async () => {
+    // AuthController's generic FluentValidation path returns e.Errors.Select(e => e.PropertyName)
+    // verbatim (PascalCase, e.g. "Email"/"Password"), unlike the lowerCamelCase hardcoded by a
+    // couple of service-level checks — this exercises hasFieldError's case-insensitive matching
+    // against that real shape for more than one field at once (gap caught by /review).
+    vi.spyOn(authApi, 'register').mockRejectedValue({
+      code: 'VALIDATION_ERROR',
+      message: 'One or more fields are invalid.',
+      fields: ['Email', 'Password'],
+      traceId: 't',
+    })
+
+    renderWithProviders(<RegistrationForm />)
+    fillValidForm()
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }))
+
+    const messages = await screen.findAllByText('One or more fields are invalid.')
+    expect(messages).toHaveLength(2)
+  })
+
   it('renders the generic duplicate-email message on a 409 conflict', async () => {
     vi.spyOn(authApi, 'register').mockRejectedValue({
       code: 'RESOURCE_CONFLICT',

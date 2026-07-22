@@ -53,3 +53,9 @@ scenarios).
 - **THEN** the frontend SHALL display the returned field-level message next to the new-password
   field
 
+#### Scenario: Rate-limited reset attempt shows a generic throttling message
+- **WHEN** `POST /api/auth/reset-password` responds `429 RATE_LIMIT_EXCEEDED`
+- **THEN** the frontend SHALL display a generic "too many attempts, try again later" message
+  (`docs/FRS.md` §3.5.4 — reset-password is rate-limited the same as the other three auth
+  endpoints; missed in the original spec delta, added after `/review` caught the gap)
+
