@@ -24,7 +24,7 @@ linked GitHub issue
 | ET013   | Dashboard aggregation APIs for Employee, Manager and Finance  | 8  | Dashboard      | Done | [#13](https://github.com/balwant-rathore/ExpenseTracker/pull/13) | et013-dashboard |
 | ET014   | Monthly reimbursement Excel generation using ClosedXML  | 10   | Reporting      | PR Done | [#14](https://github.com/balwant-rathore/ExpenseTracker/pull/14) | et014-excel-reports |
 | ET015   | HTML notification logging, notification templates, post-commit notification service | 9  | Notifications  | Done | [#15](https://github.com/balwant-rathore/ExpenseTracker/pull/15) | et015-notifications |
-| ET016   | React authentication module (routing, login, registration, reset password, protected routes) | 3 | Frontend   | In progress | Authentication UI   | et016-authentication-ui |
+| ET016   | React authentication module (routing, login, registration, reset password, protected routes) | 3 | Frontend   | PR open (#16) | [#16](https://github.com/balwant-rathore/ExpenseTracker/pull/16) | et016-authentication-ui |
 | ET017   | Expense management UI (create, edit, cancel, upload receipt, list, detail)   | 4  | Frontend       | Planned | Expense UI  |  |
 | ET018   | Manager, Compliance and Finance review screens   | 5, 7  | Frontend  | Planned | Review UI |  |
 | ET019   | Dashboard, finance search, monthly report download UI | 7, 8, 10 | Frontend  | Planned | Dashboard & Reports |  |
