@@ -16,4 +16,10 @@ public class CompanyClock : ICompanyClock
         var localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _timeZone);
         return DateOnly.FromDateTime(localNow);
     }
+
+    public DateTime ConvertLocalToUtc(DateTime localDateTime)
+    {
+        var unspecified = DateTime.SpecifyKind(localDateTime, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(unspecified, _timeZone);
+    }
 }

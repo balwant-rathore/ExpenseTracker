@@ -37,7 +37,10 @@ public class ReportsController : ControllerBase
                 HttpContext.TraceIdentifier)));
         }
 
-        var records = await _reportService.GetMonthlyReimbursementAsync(query.Year!.Value, query.Month!.Value, cancellationToken);
-        return Ok(new MonthlyReimbursementReportResponse(records));
+        var year = query.Year!.Value;
+        var month = query.Month!.Value;
+        var content = await _reportService.GenerateMonthlyReimbursementExcelAsync(year, month, cancellationToken);
+        var fileName = $"Monthly-Reimbursement-{year:D4}-{month:D2}.xlsx";
+        return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 }

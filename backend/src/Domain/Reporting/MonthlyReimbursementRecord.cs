@@ -1,4 +1,4 @@
-namespace Application.Reports;
+namespace Domain.Reporting;
 
 public record MonthlyReimbursementRecord(
     string EmployeeName,
