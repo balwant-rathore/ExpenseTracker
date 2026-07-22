@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Application.Auth;
+using ClosedXML.Excel;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Persistence;
@@ -48,13 +49,13 @@ public class MonthlyReimbursementReportTests : IAsyncLifetime
         await SetWorkflowFieldsAsync(expenseId, ExpenseStatus.Reimbursed, new DateTime(2026, 7, 5, 0, 0, 0, DateTimeKind.Utc), null, new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc));
 
         var response = await financeClient.GetAsync("/api/reports/monthly-reimbursement?year=2026&month=7");
-        var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", response.Content.Headers.ContentType?.MediaType);
         var expenseNumber = await GetExpenseNumberAsync(expenseId);
-        using var json = JsonDocument.Parse(body);
-        var items = json.RootElement.GetProperty("items").EnumerateArray().ToList();
-        Assert.Contains(items, i => i.GetProperty("expenseNumber").GetString() == expenseNumber);
+        var worksheet = await GetWorksheetAsync(response);
+        var expenseNumbers = GetDataRows(worksheet).Select(r => r.Cell(2).GetString()).ToList();
+        Assert.Contains(expenseNumber, expenseNumbers);
         _ = employeeId;
     }
 
@@ -82,6 +83,68 @@ public class MonthlyReimbursementReportTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task MonthlyReimbursement_SingleDigitMonth_ZeroPadsFileName()
+    {
+        var (financeClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Finance);
+
+        var response = await financeClient.GetAsync("/api/reports/monthly-reimbursement?year=2026&month=7");
+
+        Assert.Equal("Monthly-Reimbursement-2026-07.xlsx", response.Content.Headers.ContentDisposition?.FileName?.Trim('"'));
+    }
+
+    [Fact]
+    public async Task MonthlyReimbursement_HeaderRow_MatchesFrsFieldOrder()
+    {
+        var (financeClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Finance);
+
+        var response = await financeClient.GetAsync("/api/reports/monthly-reimbursement?year=2026&month=7");
+
+        var worksheet = await GetWorksheetAsync(response);
+        Assert.Equal("Employee", worksheet.Cell(1, 1).GetString());
+        Assert.Equal("Expense Number", worksheet.Cell(1, 2).GetString());
+        Assert.Equal("Category", worksheet.Cell(1, 3).GetString());
+        Assert.Equal("Amount", worksheet.Cell(1, 4).GetString());
+        Assert.Equal("Currency", worksheet.Cell(1, 5).GetString());
+        Assert.Equal("Approval Date", worksheet.Cell(1, 6).GetString());
+        Assert.Equal("Reimbursement Date", worksheet.Cell(1, 7).GetString());
+    }
+
+    [Fact]
+    public async Task MonthlyReimbursement_DateCells_UseExcelDateFormatting()
+    {
+        var (financeClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Finance);
+        var (employeeClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Employee);
+        var attachmentId = await UploadAttachmentAsync(employeeClient);
+        var expenseId = await CreateExpenseAsync(employeeClient, attachmentId, "Travel");
+        var approvalDate = new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc);
+        var reimbursementDate = new DateTime(2026, 7, 20, 0, 0, 0, DateTimeKind.Utc);
+        await SetWorkflowFieldsAsync(expenseId, ExpenseStatus.Reimbursed, approvalDate, null, reimbursementDate);
+        var expenseNumber = await GetExpenseNumberAsync(expenseId);
+
+        var response = await financeClient.GetAsync("/api/reports/monthly-reimbursement?year=2026&month=7");
+
+        var worksheet = await GetWorksheetAsync(response);
+        var row = GetDataRows(worksheet).Single(r => r.Cell(2).GetString() == expenseNumber);
+        Assert.Equal(approvalDate, row.Cell(6).GetDateTime());
+        Assert.Equal("yyyy-MM-dd", row.Cell(6).Style.DateFormat.Format);
+        Assert.Equal(reimbursementDate, row.Cell(7).GetDateTime());
+        Assert.Equal("yyyy-MM-dd", row.Cell(7).Style.DateFormat.Format);
+    }
+
+    [Fact]
+    public async Task MonthlyReimbursement_MonthWithNoReimbursements_ReturnsHeaderOnlyWorkbook()
+    {
+        var (financeClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Finance);
+
+        var response = await financeClient.GetAsync("/api/reports/monthly-reimbursement?year=2020&month=1");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var worksheet = await GetWorksheetAsync(response);
+        Assert.Equal("Employee", worksheet.Cell(1, 1).GetString());
+        Assert.Empty(GetDataRows(worksheet));
+    }
+
+    [Fact]
     public async Task MonthlyReimbursement_OnlyIncludesExpensesReimbursedWithinRequestedMonth()
     {
         var (financeClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Finance);
@@ -96,10 +159,9 @@ public class MonthlyReimbursementReportTests : IAsyncLifetime
         await SetWorkflowFieldsAsync(augustExpenseId, ExpenseStatus.Reimbursed, new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc), null, new DateTime(2026, 8, 2, 0, 0, 0, DateTimeKind.Utc));
 
         var response = await financeClient.GetAsync("/api/reports/monthly-reimbursement?year=2026&month=7");
-        var body = await response.Content.ReadAsStringAsync();
 
-        using var json = JsonDocument.Parse(body);
-        var expenseNumbers = json.RootElement.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("expenseNumber").GetString()).ToList();
+        var worksheet = await GetWorksheetAsync(response);
+        var expenseNumbers = GetDataRows(worksheet).Select(r => r.Cell(2).GetString()).ToList();
         Assert.Contains(await GetExpenseNumberAsync(julyExpenseId), expenseNumbers);
         Assert.DoesNotContain(await GetExpenseNumberAsync(augustExpenseId), expenseNumbers);
     }
@@ -114,14 +176,22 @@ public class MonthlyReimbursementReportTests : IAsyncLifetime
         await SetWorkflowFieldsAsync(expenseId, ExpenseStatus.Approved, new DateTime(2026, 7, 5, 0, 0, 0, DateTimeKind.Utc), null, null);
 
         var response = await financeClient.GetAsync("/api/reports/monthly-reimbursement?year=2026&month=7");
-        var body = await response.Content.ReadAsStringAsync();
 
-        using var json = JsonDocument.Parse(body);
-        var expenseNumbers = json.RootElement.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("expenseNumber").GetString()).ToList();
+        var worksheet = await GetWorksheetAsync(response);
+        var expenseNumbers = GetDataRows(worksheet).Select(r => r.Cell(2).GetString()).ToList();
         Assert.DoesNotContain(await GetExpenseNumberAsync(expenseId), expenseNumbers);
     }
 
     // ---- Helpers ----
+
+    private static async Task<IXLWorksheet> GetWorksheetAsync(HttpResponseMessage response)
+    {
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        var workbook = new XLWorkbook(new MemoryStream(bytes));
+        return workbook.Worksheets.First();
+    }
+
+    private static IEnumerable<IXLRow> GetDataRows(IXLWorksheet worksheet) => worksheet.RowsUsed().Skip(1);
 
     private static ExpenseRequestBody CreateExpenseBody(Guid attachmentId, string category) => new(
         DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd"),

@@ -225,5 +225,10 @@ internal sealed class FakeCompanyClock : ICompanyClock
 {
     public DateOnly FixedToday { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
 
+    public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
+
     public DateOnly Today() => FixedToday;
+
+    public DateTime ConvertLocalToUtc(DateTime localDateTime) =>
+        TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(localDateTime, DateTimeKind.Unspecified), TimeZone);
 }
