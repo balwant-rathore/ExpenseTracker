@@ -26,7 +26,11 @@ export function ExpenseDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <ExpenseDetail expense={data.expense} currentUserEmployeeNumber={user?.employeeNumber} />
+      <ExpenseDetail
+        expense={data.expense}
+        currentUserEmployeeNumber={user?.employeeNumber}
+        currentUserRole={user?.role}
+      />
     </div>
   )
 }

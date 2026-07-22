@@ -1,5 +1,6 @@
 import { Link, Outlet } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { useAuthStore } from '@/store/authStore'
 import { useLogout } from '@/features/auth/api/useLogout'
 
 /**
@@ -8,6 +9,7 @@ import { useLogout } from '@/features/auth/api/useLogout'
  */
 export function AppLayout() {
   const logoutMutation = useLogout()
+  const role = useAuthStore((state) => state.user?.role)
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -19,6 +21,14 @@ export function AppLayout() {
           <Link to="/expenses" className="text-sm font-medium underline-offset-4 hover:underline">
             My Expenses
           </Link>
+          {role === 'Finance' && (
+            <Link
+              to="/finance/search"
+              className="text-sm font-medium underline-offset-4 hover:underline"
+            >
+              Finance Search
+            </Link>
+          )}
         </nav>
         <Button
           variant="outline"

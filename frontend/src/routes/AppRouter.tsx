@@ -8,6 +8,7 @@ import { ExpenseListPage } from '@/pages/ExpenseListPage'
 import { ExpenseDetailPage } from '@/pages/ExpenseDetailPage'
 import { CreateExpensePage } from '@/pages/CreateExpensePage'
 import { EditExpensePage } from '@/pages/EditExpensePage'
+import { FinanceSearchPage } from '@/pages/FinanceSearchPage'
 import { AppLayout } from '@/layouts/AppLayout'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RequireRole } from './RequireRole'
@@ -41,6 +42,14 @@ const router = createBrowserRouter([
         element: (
           <RequireRole allowedRoles={['Employee', 'Manager']}>
             <EditExpensePage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: '/finance/search',
+        element: (
+          <RequireRole allowedRoles={['Finance']}>
+            <FinanceSearchPage />
           </RequireRole>
         ),
       },

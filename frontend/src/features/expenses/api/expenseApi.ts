@@ -4,6 +4,7 @@ import type {
   ExpenseEnvelopeResponse,
   ExpenseSortField,
   ExpenseStatus,
+  FinanceSearchParams,
   PagedExpenseResponse,
 } from '@/types/expense'
 
@@ -81,4 +82,66 @@ export function listExpenses(
   accessToken?: string | null,
 ): Promise<PagedExpenseResponse> {
   return apiRequest<PagedExpenseResponse>(`/expenses${buildListQuery(params)}`, { accessToken })
+}
+
+export function approveExpense(id: string, accessToken?: string | null): Promise<ExpenseEnvelopeResponse> {
+  return apiRequest<ExpenseEnvelopeResponse>(`/expenses/${id}/approve`, {
+    method: 'POST',
+    accessToken,
+  })
+}
+
+export function rejectExpense(
+  id: string,
+  rejectionComment: string,
+  accessToken?: string | null,
+): Promise<ExpenseEnvelopeResponse> {
+  return apiRequest<ExpenseEnvelopeResponse>(`/expenses/${id}/reject`, {
+    method: 'POST',
+    body: { rejectionComment },
+    accessToken,
+  })
+}
+
+export function complianceApproveExpense(
+  id: string,
+  accessToken?: string | null,
+): Promise<ExpenseEnvelopeResponse> {
+  return apiRequest<ExpenseEnvelopeResponse>(`/expenses/${id}/compliance-approve`, {
+    method: 'POST',
+    accessToken,
+  })
+}
+
+export function complianceRejectExpense(
+  id: string,
+  rejectionComment: string,
+  accessToken?: string | null,
+): Promise<ExpenseEnvelopeResponse> {
+  return apiRequest<ExpenseEnvelopeResponse>(`/expenses/${id}/compliance-reject`, {
+    method: 'POST',
+    body: { rejectionComment },
+    accessToken,
+  })
+}
+
+export function reimburseExpense(
+  id: string,
+  accessToken?: string | null,
+): Promise<ExpenseEnvelopeResponse> {
+  return apiRequest<ExpenseEnvelopeResponse>(`/expenses/${id}/reimburse`, {
+    method: 'POST',
+    accessToken,
+  })
+}
+
+export function searchExpenses(
+  params: FinanceSearchParams,
+  accessToken?: string | null,
+): Promise<PagedExpenseResponse> {
+  return apiRequest<PagedExpenseResponse>('/expenses/search', {
+    method: 'POST',
+    body: params,
+    accessToken,
+  })
 }
