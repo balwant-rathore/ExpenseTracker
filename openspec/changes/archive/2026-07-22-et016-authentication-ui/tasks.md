@@ -123,9 +123,12 @@ green) — all passed after this phase.
 
 ## 5. Integration
 
-- [x] 5.1 Modified `frontend/src/main.tsx` — wrap `App` in `QueryClientProvider`, mount
-      `useSessionBootstrap` above the router.
-- [x] 5.2 Modified `frontend/src/App.tsx` — render `AppRouter` in place of the static placeholder.
+- [x] 5.1 Modified `frontend/src/main.tsx` — wrap `App` in `QueryClientProvider`.
+- [x] 5.2 Modified `frontend/src/App.tsx` — render `AppRouter` in place of the static placeholder,
+      mount `useSessionBootstrap` above the router. **Correction (caught by a third `/review`
+      pass)**: this task's original text said `useSessionBootstrap` was mounted in `main.tsx`; it
+      is actually in `App.tsx` — functionally equivalent (still above the router either way), but
+      the doc was wrong and is fixed here per AGENTS.md §13.
 - [x] 5.3 Smoke pass, run against a real local backend + SQL Server (both dev servers started,
       then stopped after): registered a throwaway account (`EMP024`/`harper.smoketest@company.com`
       — a `Role=Employee` seed row), logged in, logged out, called forgot-password, verified a

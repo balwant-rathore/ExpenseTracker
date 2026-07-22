@@ -263,8 +263,12 @@ e2e/04-route-guards.spec.ts                         — (D7)
 
 Modified files:
 ```
-frontend/src/App.tsx        — render AppRouter instead of the static placeholder markup
-frontend/src/main.tsx       — wrap App in QueryClientProvider + mount useSessionBootstrap
+frontend/src/App.tsx        — render AppRouter instead of the static placeholder markup, mount
+                              useSessionBootstrap (corrected during implementation: this lives in
+                              App.tsx, not main.tsx — main.tsx only wraps QueryClientProvider;
+                              caught by a third /review pass, functionally equivalent either way
+                              since both are still above the router)
+frontend/src/main.tsx       — wrap App in QueryClientProvider
 frontend/vite.config.ts     — add server.proxy for /api (D1)
 frontend/package.json       — new shadcn-generated component files only if D6 needs no new deps
 package.json (repo root)    — add @playwright/test devDependency + an `e2e` script (D7)
