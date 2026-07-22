@@ -37,6 +37,20 @@ describe('apiRequest', () => {
     expect((init!.headers as Record<string, string>)['Content-Type']).toBe('application/json')
   })
 
+  it('passes a FormData body through unchanged without JSON.stringify or a Content-Type header', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(201, { attachmentId: 'abc-123' }))
+
+    const formData = new FormData()
+    formData.append('file', new File(['data'], 'receipt.pdf', { type: 'application/pdf' }))
+
+    await apiRequest('/attachments', { method: 'POST', body: formData })
+
+    const init = vi.mocked(fetch).mock.calls[0][1]
+    expect(init).toBeDefined()
+    expect(init!.body).toBe(formData)
+    expect((init!.headers as Record<string, string>)['Content-Type']).toBeUndefined()
+  })
+
   it('attaches an Authorization header when accessToken is provided', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 204 }))
 

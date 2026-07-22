@@ -67,6 +67,7 @@ public class ExpenseRepository : Repository<Expense>, IExpenseRepository
     {
         return DbContext.Expenses
             .Include(e => e.Employee)
+            .Include(e => e.Attachment)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
     }
 
@@ -102,6 +103,7 @@ public class ExpenseRepository : Repository<Expense>, IExpenseRepository
 
         var items = await sorted
             .Include(e => e.Employee)
+            .Include(e => e.Attachment)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);

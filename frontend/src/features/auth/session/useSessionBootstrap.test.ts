@@ -82,6 +82,38 @@ describe('performSilentRefresh', () => {
     expect(result).toBeNull()
     expect(getStoredRefreshToken()).toBeNull()
   })
+
+  it('coalesces concurrent calls onto a single in-flight request instead of redeeming the same refresh token twice', async () => {
+    const accessToken = makeAccessToken()
+    storeRefreshToken('old-refresh-token')
+    const refreshSpy = vi
+      .spyOn(authApi, 'refresh')
+      .mockResolvedValue({ accessToken, refreshToken: 'new-refresh-token' })
+    vi.spyOn(authApi, 'me').mockResolvedValue(user)
+
+    // Simulates React StrictMode double-invoking an effect on mount: two
+    // callers fire before either has resolved.
+    const [first, second] = await Promise.all([performSilentRefresh(), performSilentRefresh()])
+
+    expect(refreshSpy).toHaveBeenCalledTimes(1)
+    expect(first).toEqual({ user, accessToken })
+    expect(second).toEqual({ user, accessToken })
+  })
+
+  it('allows a later call to redeem a fresh token once the in-flight request has settled', async () => {
+    storeRefreshToken('old-refresh-token')
+    const firstAccessToken = makeAccessToken()
+    const secondAccessToken = makeAccessToken()
+    const refreshSpy = vi.spyOn(authApi, 'refresh')
+    refreshSpy.mockResolvedValueOnce({ accessToken: firstAccessToken, refreshToken: 'r1' })
+    refreshSpy.mockResolvedValueOnce({ accessToken: secondAccessToken, refreshToken: 'r2' })
+    vi.spyOn(authApi, 'me').mockResolvedValue(user)
+
+    await performSilentRefresh()
+    await performSilentRefresh()
+
+    expect(refreshSpy).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('useSessionBootstrap', () => {

@@ -50,7 +50,11 @@ public class ExpenseSubmissionTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         using var json = JsonDocument.Parse(body);
-        Assert.Equal("Draft", json.RootElement.GetProperty("expense").GetProperty("status").GetString());
+        var expenseElement = json.RootElement.GetProperty("expense");
+        Assert.Equal("Draft", expenseElement.GetProperty("status").GetString());
+        // ADR-0020: receiptAttachmentId is a plain scalar on Expense, always populated
+        // regardless of whether the Employee navigation was Include()'d.
+        Assert.Equal(attachmentId, expenseElement.GetProperty("receiptAttachmentId").GetGuid());
     }
 
     [Fact]
@@ -67,6 +71,7 @@ public class ExpenseSubmissionTests : IAsyncLifetime
         var expenseElement = json.RootElement.GetProperty("expense");
         Assert.Equal("Submitted", expenseElement.GetProperty("status").GetString());
         Assert.Equal(JsonValueKind.String, expenseElement.GetProperty("submittedAt").ValueKind);
+        Assert.Equal(attachmentId, expenseElement.GetProperty("receiptAttachmentId").GetGuid());
     }
 
     [Fact]

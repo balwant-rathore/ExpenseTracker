@@ -23,28 +23,48 @@ interface RefreshedSession {
   accessToken: string
 }
 
+let inFlightRefresh: Promise<RefreshedSession | null> | null = null
+
 /**
  * Redeems the stored refresh token for a new token pair, then fetches the
  * current user (POST /api/auth/refresh returns tokens only — see
  * docs/decisions/ADR-0017-frontend-token-storage.md). Rotates the stored
  * refresh token on success. Returns null and clears the stored refresh
  * token on any failure — callers don't need their own try/catch.
+ *
+ * Coalesces concurrent callers onto a single in-flight request. Refresh
+ * tokens are single-use and rotate on redemption (docs/SDS.md §4.4); two
+ * genuinely simultaneous calls (e.g. React StrictMode's dev-mode double
+ * effect invocation on mount) would otherwise both redeem the same stored
+ * token, and the loser's request hits the backend's reuse-of-a-revoked-
+ * token safeguard, which revokes every refresh token for that user —
+ * silently killing the session the winner just established.
  */
 export async function performSilentRefresh(): Promise<RefreshedSession | null> {
+  if (inFlightRefresh) {
+    return inFlightRefresh
+  }
+
   const storedRefreshToken = getStoredRefreshToken()
   if (!storedRefreshToken) {
     return null
   }
 
-  try {
-    const refreshResult = await authApi.refresh(storedRefreshToken)
-    const user = await authApi.me(refreshResult.accessToken)
-    storeRefreshToken(refreshResult.refreshToken)
-    return { user, accessToken: refreshResult.accessToken }
-  } catch {
-    clearStoredRefreshToken()
-    return null
-  }
+  inFlightRefresh = (async () => {
+    try {
+      const refreshResult = await authApi.refresh(storedRefreshToken)
+      const user = await authApi.me(refreshResult.accessToken)
+      storeRefreshToken(refreshResult.refreshToken)
+      return { user, accessToken: refreshResult.accessToken }
+    } catch {
+      clearStoredRefreshToken()
+      return null
+    } finally {
+      inFlightRefresh = null
+    }
+  })()
+
+  return inFlightRefresh
 }
 
 /**

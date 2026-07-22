@@ -16,4 +16,7 @@ public record ExpenseResponse(
     string? RejectionComment,
     DateTime? ReimbursedAt,
     DateTime CreatedAt,
-    string? EmployeeName);
+    string? EmployeeName,
+    string? EmployeeNumber,
+    Guid ReceiptAttachmentId,
+    string? AttachmentOriginalFileName);

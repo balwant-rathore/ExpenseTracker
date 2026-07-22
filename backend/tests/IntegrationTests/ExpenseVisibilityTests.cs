@@ -86,6 +86,30 @@ public class ExpenseVisibilityTests : IAsyncLifetime
         Assert.Single(ids);
     }
 
+    // ADR-0020: list items include employeeNumber, receiptAttachmentId, and
+    // attachmentOriginalFileName - needed by the frontend for ownership-based action
+    // visibility and attachment display. employeeNumber (not a raw Employee GUID) is what
+    // the frontend compares against the authenticated User.employeeNumber, since
+    // /api/auth/me never exposes the Employee GUID.
+    [Fact]
+    public async Task GetAll_ListItem_IncludesOwnerAndAttachmentFields()
+    {
+        var (client, employeeId) = await CreateAuthorizedClientAsync(EmployeeRole.Employee);
+        var attachmentId = await UploadAttachmentAsync(client);
+        var expenseId = await CreateExpenseAsync(client, attachmentId, "Draft");
+
+        var response = await client.GetAsync("/api/expenses");
+        var body = await response.Content.ReadAsStringAsync();
+
+        using var json = JsonDocument.Parse(body);
+        var item = json.RootElement.GetProperty("items").EnumerateArray()
+            .Single(i => i.GetProperty("id").GetGuid() == expenseId);
+
+        Assert.Equal(await GetEmployeeNumberAsync(employeeId), item.GetProperty("employeeNumber").GetString());
+        Assert.Equal(attachmentId, item.GetProperty("receiptAttachmentId").GetGuid());
+        Assert.Equal("et009-test-receipt.pdf", item.GetProperty("attachmentOriginalFileName").GetString());
+    }
+
     // Scenario: Employee's own Draft expense is included
     [Fact]
     public async Task GetAll_Employee_OwnDraftExpense_IsIncluded()
@@ -584,6 +608,14 @@ public class ExpenseVisibilityTests : IAsyncLifetime
         var expense = await dbContext.Expenses.FindAsync(expenseId);
         expense!.Category = category;
         await dbContext.SaveChangesAsync();
+    }
+
+    private async Task<string> GetEmployeeNumberAsync(Guid employeeId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var employee = await dbContext.Employees.FindAsync(employeeId);
+        return employee!.EmployeeNumber;
     }
 
     private static async Task<Guid> UploadAttachmentAsync(HttpClient client)
