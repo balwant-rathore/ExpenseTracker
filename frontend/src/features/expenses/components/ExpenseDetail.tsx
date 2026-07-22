@@ -4,6 +4,7 @@ import type { EmployeeRole } from '@/types/auth'
 import type { ExpenseResponse } from '@/types/expense'
 import { categoryLabel, formatCurrency, statusLabel } from '../utils/expenseDisplay'
 import { getApplicableReviewActions, isExpenseOwner } from '../utils/reviewEligibility'
+import { ViewReceiptLink } from './ViewReceiptLink'
 import { useSubmitExpense } from '../api/useSubmitExpense'
 import { useApproveExpense } from '../api/useApproveExpense'
 import { useComplianceApprove } from '../api/useComplianceApprove'
@@ -64,7 +65,12 @@ export function ExpenseDetail({
         <dt className="text-sm text-muted-foreground">Description</dt>
         <dd>{expense.description}</dd>
         <dt className="text-sm text-muted-foreground">Receipt</dt>
-        <dd>{expense.attachmentOriginalFileName ?? 'Receipt attached'}</dd>
+        <dd>
+          <ViewReceiptLink
+            attachmentId={expense.receiptAttachmentId}
+            fileName={expense.attachmentOriginalFileName ?? 'Receipt attached'}
+          />
+        </dd>
         {expense.rejectionComment && (
           <>
             <dt className="text-sm text-muted-foreground">Rejection comment</dt>

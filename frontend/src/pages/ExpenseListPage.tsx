@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
+import { useBreadcrumb } from '@/store/useBreadcrumb'
 import { useExpenseList } from '@/features/expenses/api/useExpenseList'
 import { ExpenseFilters, type ExpenseFiltersValue } from '@/features/expenses/components/ExpenseFilters'
 import { ExpenseList } from '@/features/expenses/components/ExpenseList'
@@ -15,6 +16,7 @@ const EMPTY_FILTERS: ExpenseFiltersValue = {
 }
 
 export function ExpenseListPage() {
+  useBreadcrumb('Expenses')
   const user = useAuthStore((state) => state.user)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<10 | 20 | 50 | 100>(20)

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useBreadcrumb } from '@/store/useBreadcrumb'
 import { useFinanceSearch } from '@/features/expenses/api/useFinanceSearch'
 import {
   FinanceSearchFilters,
@@ -17,6 +18,7 @@ const EMPTY_FILTERS: FinanceSearchFilterValues = {
 }
 
 export function FinanceSearchPage() {
+  useBreadcrumb('Finance Search')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<20 | 50 | 100 | 500>(20)
   const [sortBy, setSortBy] = useState<ExpenseSortField>('expenseDate')

@@ -61,3 +61,30 @@ export async function apiRequest<TResponse>(
 
   return data as TResponse
 }
+
+export interface BlobResponse {
+  blob: Blob
+  fileName: string | null
+}
+
+function parseFileName(contentDisposition: string | null): string | null {
+  const match = contentDisposition?.match(/filename="?([^";]+)"?/)
+  return match ? match[1] : null
+}
+
+export async function apiRequestBlob(
+  path: string,
+  options: { accessToken?: string | null } = {},
+): Promise<BlobResponse> {
+  const headers: Record<string, string> = {}
+  if (options.accessToken) headers.Authorization = `Bearer ${options.accessToken}`
+
+  const response = await fetch(`/api${path}`, { headers })
+
+  if (!response.ok) {
+    const data: unknown = await response.json().catch(() => null)
+    throw isErrorEnvelope(data) ? data.error : FALLBACK_ERROR
+  }
+
+  return { blob: await response.blob(), fileName: parseFileName(response.headers.get('Content-Disposition')) }
+}

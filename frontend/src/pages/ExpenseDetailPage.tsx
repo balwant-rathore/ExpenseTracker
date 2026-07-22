@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { useBreadcrumb } from '@/store/useBreadcrumb'
 import { useExpense } from '@/features/expenses/api/useExpense'
 import { ExpenseDetail } from '@/features/expenses/components/ExpenseDetail'
 
@@ -7,6 +8,8 @@ export function ExpenseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const user = useAuthStore((state) => state.user)
   const { data, isLoading, error } = useExpense(id ?? '')
+
+  useBreadcrumb(data?.expense.expenseNumber ?? 'Expense')
 
   if (isLoading) {
     return <div className="p-4">Loading…</div>

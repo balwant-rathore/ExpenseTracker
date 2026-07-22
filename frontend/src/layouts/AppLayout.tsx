@@ -2,6 +2,7 @@ import { Link, Outlet } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
 import { useLogout } from '@/features/auth/api/useLogout'
+import { Breadcrumbs } from '@/components/Breadcrumbs'
 
 /**
  * Minimal authenticated shell so a user can actually reach /expenses and
@@ -15,19 +16,35 @@ export function AppLayout() {
     <div className="flex min-h-svh flex-col">
       <header className="flex items-center justify-between border-b p-4">
         <nav className="flex gap-4">
-          <Link to="/dashboard" className="text-sm font-medium underline-offset-4 hover:underline">
-            Dashboard
-          </Link>
-          <Link to="/expenses" className="text-sm font-medium underline-offset-4 hover:underline">
-            My Expenses
-          </Link>
-          {role === 'Finance' && (
-            <Link
-              to="/finance/search"
-              className="text-sm font-medium underline-offset-4 hover:underline"
-            >
-              Finance Search
+          {role === 'ComplianceOfficer' ? (
+            <Link to="/expenses" className="text-sm font-medium underline-offset-4 hover:underline">
+              My Expenses
             </Link>
+          ) : (
+            <>
+              <Link to="/dashboard" className="text-sm font-medium underline-offset-4 hover:underline">
+                Dashboard
+              </Link>
+              <Link to="/expenses" className="text-sm font-medium underline-offset-4 hover:underline">
+                My Expenses
+              </Link>
+            </>
+          )}
+          {role === 'Finance' && (
+            <>
+              <Link
+                to="/finance/search"
+                className="text-sm font-medium underline-offset-4 hover:underline"
+              >
+                Finance Search
+              </Link>
+              <Link
+                to="/reports/monthly-reimbursement"
+                className="text-sm font-medium underline-offset-4 hover:underline"
+              >
+                Monthly Report
+              </Link>
+            </>
           )}
         </nav>
         <Button
@@ -38,6 +55,7 @@ export function AppLayout() {
           {logoutMutation.isPending ? 'Logging out…' : 'Log out'}
         </Button>
       </header>
+      <Breadcrumbs />
       <main className="flex-1">
         <Outlet />
       </main>

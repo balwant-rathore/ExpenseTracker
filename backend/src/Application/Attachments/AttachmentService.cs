@@ -1,4 +1,6 @@
+using Application.Expenses;
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Repositories;
 using Domain.Storage;
 
@@ -7,15 +9,18 @@ namespace Application.Attachments;
 public class AttachmentService : IAttachmentService
 {
     private readonly IAttachmentRepository _attachmentRepository;
+    private readonly IExpenseRepository _expenseRepository;
     private readonly IFileStorageService _fileStorage;
     private readonly IUnitOfWork _unitOfWork;
 
     public AttachmentService(
         IAttachmentRepository attachmentRepository,
+        IExpenseRepository expenseRepository,
         IFileStorageService fileStorage,
         IUnitOfWork unitOfWork)
     {
         _attachmentRepository = attachmentRepository;
+        _expenseRepository = expenseRepository;
         _fileStorage = fileStorage;
         _unitOfWork = unitOfWork;
     }
@@ -50,5 +55,39 @@ public class AttachmentService : IAttachmentService
         }
 
         return attachment.Id;
+    }
+
+    public async Task<AttachmentDownloadResult> DownloadAsync(
+        Guid employeeId, EmployeeRole role, Guid attachmentId, CancellationToken cancellationToken)
+    {
+        var attachment = await _attachmentRepository.GetByIdAsync(attachmentId, cancellationToken);
+        if (attachment is null)
+        {
+            return AttachmentDownloadResult.Failure(AttachmentDownloadFailureReason.AttachmentNotFound);
+        }
+
+        var owningExpense = await _expenseRepository.GetByAttachmentIdWithEmployeeAsync(attachmentId, cancellationToken);
+        if (owningExpense is null)
+        {
+            return AttachmentDownloadResult.Failure(AttachmentDownloadFailureReason.AttachmentNotFound);
+        }
+
+        var isVisible = ExpenseVisibility.BuildPredicate(role, employeeId).Compile().Invoke(owningExpense);
+        if (!isVisible)
+        {
+            return AttachmentDownloadResult.Failure(AttachmentDownloadFailureReason.NotVisible);
+        }
+
+        Stream stream;
+        try
+        {
+            stream = await _fileStorage.OpenReadAsync(attachment.StoragePath, cancellationToken);
+        }
+        catch (FileNotFoundException)
+        {
+            return AttachmentDownloadResult.Failure(AttachmentDownloadFailureReason.AttachmentNotFound);
+        }
+
+        return AttachmentDownloadResult.Success(stream, attachment.ContentType, attachment.OriginalFileName);
     }
 }

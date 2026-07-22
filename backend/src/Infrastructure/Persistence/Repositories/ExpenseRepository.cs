@@ -71,6 +71,14 @@ public class ExpenseRepository : Repository<Expense>, IExpenseRepository
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
     }
 
+    public Task<Expense?> GetByAttachmentIdWithEmployeeAsync(Guid attachmentId, CancellationToken cancellationToken)
+    {
+        return DbContext.Expenses
+            .Include(e => e.Employee)
+            .Include(e => e.Attachment)
+            .FirstOrDefaultAsync(e => e.AttachmentId == attachmentId, cancellationToken);
+    }
+
     public async Task<(IReadOnlyList<Expense> Items, int TotalRecords)> GetPagedAsync(
         Expression<Func<Expense, bool>> visibilityPredicate,
         ExpenseSortField sortBy,

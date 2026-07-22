@@ -672,9 +672,14 @@ HTTP 429 Too Many Requests
 | Endpoint | Auth | Request | Success | Validation |
 |----------|------|---------|---------|-----------|
 | `POST /api/attachments` | Employee, Manager | `multipart/form-data (file)` | `201 Created → attachmentId` | PDF, JPG, PNG, max 10 MB |
+| `GET /api/attachments/{id}` | Any authenticated role | — | `200 → file bytes, Content-Disposition: inline` | 404 if not found/unlinked; 403 if caller cannot view the owning expense (see ADR-0022) |
 
 **Note**
 - Uploaded attachments return an attachmentId. This identifier shall be supplied in the subsequent POST /api/expenses request.
+- `GET /api/attachments/{id}` authorization reuses the same expense-visibility rule enforced on
+  `GET /api/expenses/{id}` (`Application.Expenses.ExpenseVisibility.BuildPredicate`), applied to
+  the attachment's owning expense — whoever can view the expense can view its attachment. See
+  `docs/decisions/ADR-0022-attachment-download-endpoint.md`.
 
 ### 5.4 Finance Search APIs
 

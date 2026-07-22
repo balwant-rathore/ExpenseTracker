@@ -115,6 +115,9 @@ internal sealed class FakeFileStorageService : IFileStorageService
         DeletedRelativePaths.Add(relativePath);
         return Task.CompletedTask;
     }
+
+    public Task<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken) =>
+        throw new NotSupportedException("Not exercised by OrphanAttachmentSweeper.");
 }
 
 internal sealed class FakeUnitOfWork : IUnitOfWork

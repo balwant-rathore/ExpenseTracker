@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import type { ApiError } from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
+import { useBreadcrumbStore } from '@/store/breadcrumbStore'
 import { clearStoredRefreshToken, getStoredRefreshToken } from '../session/useSessionBootstrap'
 import { logout } from './authApi'
 
@@ -24,6 +25,10 @@ export function useLogout() {
     onSettled: () => {
       clearStoredRefreshToken()
       clearSession()
+      // A subsequent login in the same SPA session must not inherit the previous user's
+      // breadcrumb trail (design.md D6) — a hard reload already clears it implicitly, but
+      // logout→login without a reload would not.
+      useBreadcrumbStore.getState().reset()
     },
   })
 }
