@@ -80,3 +80,16 @@ export interface PagedExpenseResponse {
   pageSize: number
   totalRecords: number
 }
+
+export interface FinanceSearchParams {
+  expenseNumber?: string
+  employeeName?: string
+  category?: ExpenseCategory
+  status?: ExpenseStatus
+  fromDate?: string
+  toDate?: string
+  page?: number
+  pageSize?: 20 | 50 | 100 | 500
+  sortBy?: ExpenseSortField
+  sortDirection?: 'asc' | 'desc'
+}
