@@ -84,6 +84,7 @@ SQL Server
 | Email Notifications | No SMTP integration is implemented. |
 | Notification Output | Notifications are written to an HTML log containing To, CC, Subject, Body and Timestamp. |
 | Password Reset | OTPs are generated for development and logged to the server console as defined in the FRS. |
+| Cross-Origin Requests | A named CORS policy (`Api.Cors.CorsPolicyNames.Frontend`) allows only origins listed in `Cors:AllowedOrigins` configuration (empty/deny-all by default; per-environment allow-list). See `docs/decisions/ADR-0019-backend-cors-policy.md`. |
 
 ### 1.5 Architectural Assumptions
 
@@ -632,6 +633,7 @@ HTTP 429 Too Many Requests
 | `POST /api/auth/logout` | Yes | `refreshToken` | `204 No Content` | 401 |
 | `POST /api/auth/forgot-password` | No | `email` | `200 OK` | 400, 429 |
 | `POST /api/auth/reset-password` | No | `email`, `otp`, `newPassword` | `200 OK` | 400, 401, 410, 429 |
+| `GET /api/auth/me` | Yes | — | `200 OK` → UserDto | 401 |
 
 **User Registration Notes**
 - User registration validates an existing Employee Number against the supplied employeeId in registration request and creates only the User account.

@@ -168,4 +168,15 @@ public class AuthService : IAuthService
 
         return new AuthResult(true, null, null, null, AuthFailureReason.None);
     }
+
+    public async Task<UserDto?> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await _userRepository.GetByIdWithEmployeeAsync(userId, cancellationToken);
+        if (user?.Employee is null)
+        {
+            return null;
+        }
+
+        return new UserDto(user.Id, user.Email, user.Employee.EmployeeNumber, user.Employee.FirstName, user.Employee.LastName, user.Employee.Role.ToString());
+    }
 }
