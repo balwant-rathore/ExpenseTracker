@@ -1,7 +1,7 @@
 using Application.Expenses;
-using Application.Notifications;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.Notifications;
 using Domain.Repositories;
 
 namespace UnitTests.Application.Expenses;
@@ -142,6 +142,39 @@ public class ExpenseServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_Submit_SendsSubmittedNotificationAfterCommit()
+    {
+        var expenseRepository = new FakeExpenseRepository();
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var attachment = CreateAttachment(EmployeeId);
+        attachmentRepository.Attachments.Add(attachment);
+        var notificationService = new FakeNotificationService();
+        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork(), notificationService);
+
+        var result = await service.CreateAsync(EmployeeId, CreateRequest(attachment.Id, action: "Submit"), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var notification = Assert.Single(notificationService.Notifications);
+        Assert.Equal(NotificationEvent.Submitted, notification.Event);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Draft_SendsNoNotification()
+    {
+        var expenseRepository = new FakeExpenseRepository();
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var attachment = CreateAttachment(EmployeeId);
+        attachmentRepository.Attachments.Add(attachment);
+        var notificationService = new FakeNotificationService();
+        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork(), notificationService);
+
+        var result = await service.CreateAsync(EmployeeId, CreateRequest(attachment.Id, action: "Draft"), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(notificationService.Notifications);
+    }
+
+    [Fact]
     public async Task SubmitAsync_OwnerDraft_TransitionsToSubmitted()
     {
         var attachment = CreateAttachment(EmployeeId);
@@ -158,6 +191,43 @@ public class ExpenseServiceTests
         Assert.Equal("Submitted", result.Expense!.Status);
         Assert.NotNull(result.Expense.SubmittedAt);
         Assert.Equal(ExpenseStatus.Submitted, expense.Status);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_OwnerDraft_SendsSubmittedNotificationAfterCommit()
+    {
+        var attachment = CreateAttachment(EmployeeId);
+        var expense = CreateDraftExpense(EmployeeId, attachment.Id);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        attachmentRepository.Attachments.Add(attachment);
+        var notificationService = new FakeNotificationService();
+        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork(), notificationService);
+
+        var result = await service.SubmitAsync(EmployeeId, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var notification = Assert.Single(notificationService.Notifications);
+        Assert.Equal(NotificationEvent.Submitted, notification.Event);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_NonOwner_SendsNoNotification()
+    {
+        var attachment = CreateAttachment(EmployeeId);
+        var expense = CreateDraftExpense(EmployeeId, attachment.Id);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        attachmentRepository.Attachments.Add(attachment);
+        var notificationService = new FakeNotificationService();
+        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork(), notificationService);
+
+        var result = await service.SubmitAsync(Guid.NewGuid(), expense.Id, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Empty(notificationService.Notifications);
     }
 
     [Fact]
@@ -1013,6 +1083,26 @@ public class ExpenseServiceTests
     }
 
     [Fact]
+    public async Task RejectAsync_Success_SendsRejectedNotificationAfterCommit()
+    {
+        var managerId = Guid.NewGuid();
+        var reportId = Guid.NewGuid();
+        var attachment = CreateAttachment(reportId);
+        var expense = CreateExpense(reportId, attachment.Id, ExpenseStatus.Submitted, managerId: managerId);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var notificationService = new FakeNotificationService();
+        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork(), notificationService);
+
+        var result = await service.RejectAsync(managerId, expense.Id, new RejectExpenseRequest { RejectionComment = "Missing itemized receipt" }, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var notification = Assert.Single(notificationService.Notifications);
+        Assert.Equal(NotificationEvent.Rejected, notification.Event);
+    }
+
+    [Fact]
     public async Task RejectAsync_OwnExpense_ReturnsNotAuthorizedReviewer()
     {
         var managerId = Guid.NewGuid();
@@ -1352,6 +1442,26 @@ public class ExpenseServiceTests
         Assert.True(result.Succeeded);
         Assert.Equal("Reimbursed", result.Expense!.Status);
         Assert.Equal(ExpenseStatus.Reimbursed, expense.Status);
+    }
+
+    [Fact]
+    public async Task ReimburseAsync_Success_SendsReimbursedNotificationAfterCommit()
+    {
+        var financeId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var attachment = CreateAttachment(employeeId);
+        var expense = CreateExpense(employeeId, attachment.Id, ExpenseStatus.Approved, ExpenseCategory.Travel);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var notificationService = new FakeNotificationService();
+        var service = new ExpenseService(expenseRepository, attachmentRepository, new FakeExpenseNumberGenerator(), new FakeCompanyClock(), new FakeExpensesUnitOfWork(), notificationService);
+
+        var result = await service.ReimburseAsync(financeId, expense.Id, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var notification = Assert.Single(notificationService.Notifications);
+        Assert.Equal(NotificationEvent.Reimbursed, notification.Event);
     }
 
     [Fact]

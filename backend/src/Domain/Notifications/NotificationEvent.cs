@@ -1,4 +1,4 @@
-namespace Application.Notifications;
+namespace Domain.Notifications;
 
 public enum NotificationEvent
 {

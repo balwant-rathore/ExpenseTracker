@@ -22,8 +22,8 @@ linked GitHub issue
 | ET011   | Compliance approval/rejection workflow for Client Entertainment   | 5.2   | Workflow       | Done | [#11](https://github.com/balwant-rathore/ExpenseTracker/pull/11) | et011-compliance-review |
 | ET012   | Finance search, reimbursement workflow, reimbursement export APIs   | 7  | Finance        | Done | [#12](https://github.com/balwant-rathore/ExpenseTracker/pull/12) | et012-finance-processing |
 | ET013   | Dashboard aggregation APIs for Employee, Manager and Finance  | 8  | Dashboard      | Done | [#13](https://github.com/balwant-rathore/ExpenseTracker/pull/13) | et013-dashboard |
-| ET014   | Monthly reimbursement Excel generation using ClosedXML  | 10   | Reporting      | PR open (#14) | [#14](https://github.com/balwant-rathore/ExpenseTracker/pull/14) | et014-excel-reports |
-| ET015   | HTML notification logging, notification templates, post-commit notification service | 9  | Notifications  | Planned | Notifications  |  |
+| ET014   | Monthly reimbursement Excel generation using ClosedXML  | 10   | Reporting      | PR Done | [#14](https://github.com/balwant-rathore/ExpenseTracker/pull/14) | et014-excel-reports |
+| ET015   | HTML notification logging, notification templates, post-commit notification service | 9  | Notifications  | PR open (#15) | [#15](https://github.com/balwant-rathore/ExpenseTracker/pull/15) | et015-notifications |
 | ET016   | React authentication module (routing, login, registration, reset password, protected routes) | 3 | Frontend   | Planned | Authentication UI   |  |
 | ET017   | Expense management UI (create, edit, cancel, upload receipt, list, detail)   | 4  | Frontend       | Planned | Expense UI  |  |
 | ET018   | Manager, Compliance and Finance review screens   | 5, 7  | Frontend  | Planned | Review UI |  |

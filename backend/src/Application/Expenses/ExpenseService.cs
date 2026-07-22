@@ -1,6 +1,6 @@
-using Application.Notifications;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.Notifications;
 using Domain.Repositories;
 
 namespace Application.Expenses;
@@ -96,6 +96,11 @@ public class ExpenseService : IExpenseService
             switch (outcome)
             {
                 case ExpenseInsertOutcome.Success:
+                    if (status == ExpenseStatus.Submitted)
+                    {
+                        await _notificationService.NotifyAsync(NotificationEvent.Submitted, expense, cancellationToken);
+                    }
+
                     return ExpenseResult.Success(Map(expense));
                 case ExpenseInsertOutcome.AttachmentAlreadyLinked:
                     return ExpenseResult.Failure(ExpenseFailureReason.AttachmentAlreadyLinked);
@@ -165,6 +170,8 @@ public class ExpenseService : IExpenseService
         await _unitOfWork.ExecuteInTransactionAsync(
             () => _unitOfWork.SaveChangesAsync(cancellationToken),
             cancellationToken);
+
+        await _notificationService.NotifyAsync(NotificationEvent.Submitted, expense, cancellationToken);
 
         return ExpenseResult.Success(Map(expense));
     }
