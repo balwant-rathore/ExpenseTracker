@@ -48,6 +48,8 @@ export function RegistrationForm() {
 
   const apiError = registerMutation.error
   const conflictMessage = apiError?.code === 'RESOURCE_CONFLICT' ? apiError.message : null
+  const rateLimitMessage =
+    apiError?.code === 'RATE_LIMIT_EXCEEDED' ? 'Too many attempts. Please try again later.' : null
 
   return (
     <form onSubmit={onSubmit} noValidate>
@@ -98,6 +100,11 @@ export function RegistrationForm() {
         {conflictMessage && (
           <p role="alert" className="text-sm text-destructive">
             {conflictMessage}
+          </p>
+        )}
+        {rateLimitMessage && (
+          <p role="alert" className="text-sm text-destructive">
+            {rateLimitMessage}
           </p>
         )}
         <Button type="submit" disabled={registerMutation.isPending}>

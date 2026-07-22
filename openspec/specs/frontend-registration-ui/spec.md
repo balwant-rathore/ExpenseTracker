@@ -51,6 +51,13 @@ error scenarios).
   message against the `employeeNumber` field, without implying whether the number doesn't exist,
   belongs to an inactive employee, or is already registered
 
+#### Scenario: Rate-limited registration attempt shows a generic throttling message
+- **WHEN** `POST /api/auth/register` responds `429 RATE_LIMIT_EXCEEDED`
+- **THEN** the frontend SHALL display a generic "too many attempts, try again later" message
+  (`docs/FRS.md` §3.5.2 — registration is rate-limited the same as the other three auth endpoints;
+  missed in the original spec delta despite `frontend-password-reset-ui` already having caught the
+  identical gap for reset-password in a prior `/review` pass — added now for registration too)
+
 ### Requirement: Successful Registration Establishes Session and Redirects
 On a successful registration response, the frontend SHALL establish the authenticated session
 (per the `frontend-session-management` capability) and redirect to the authenticated landing

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import * as authApi from '../api/authApi'
 import { useAuthStore } from '@/store/authStore'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -98,6 +100,25 @@ describe('RegistrationForm', () => {
     expect(messages).toHaveLength(2)
   })
 
+  it('shows a generic throttling message on a 429 response', async () => {
+    // FRS §3.5.2: registration is rate-limited the same as the other three auth endpoints —
+    // gap caught by /review (the original spec delta never listed this scenario, even though the
+    // identical gap had already been caught and fixed for reset-password in a prior pass).
+    vi.spyOn(authApi, 'register').mockRejectedValue({
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many requests.',
+      fields: [],
+      traceId: 't',
+    })
+
+    renderWithProviders(<RegistrationForm />)
+    fillValidForm()
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Too many attempts')
+  })
+
   it('renders the generic duplicate-email message on a 409 conflict', async () => {
     vi.spyOn(authApi, 'register').mockRejectedValue({
       code: 'RESOURCE_CONFLICT',
@@ -142,5 +163,30 @@ describe('RegistrationForm', () => {
 
     await waitFor(() => expect(useAuthStore.getState().status).toBe('authenticated'))
     expect(useAuthStore.getState().user).toEqual(user)
+  })
+
+  it('navigates to /dashboard on success (real route assertion, not just store state)', async () => {
+    vi.spyOn(authApi, 'register').mockResolvedValue({
+      user,
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+    })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/register']}>
+          <Routes>
+            <Route path="/register" element={<RegistrationForm />} />
+            <Route path="/dashboard" element={<div>dashboard stub</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    fillValidForm()
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }))
+
+    expect(await screen.findByText('dashboard stub')).toBeInTheDocument()
   })
 })

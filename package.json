@@ -2,7 +2,8 @@
   "name": "expense-tracker",
   "private": true,
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "e2e": "playwright test"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.1",
