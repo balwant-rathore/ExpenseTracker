@@ -43,7 +43,7 @@ public class ExpenseMaintenanceTests : IAsyncLifetime
     [Fact]
     public async Task GetById_Owner_Returns200WithExpenseData()
     {
-        var (client, _) = await CreateAuthorizedEmployeeClientAsync();
+        var (client, employeeId) = await CreateAuthorizedEmployeeClientAsync();
         var attachmentId = await UploadAttachmentAsync(client);
         var expenseId = await CreateExpenseAsync(client, attachmentId, "Draft");
 
@@ -52,7 +52,15 @@ public class ExpenseMaintenanceTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var json = JsonDocument.Parse(body);
-        Assert.Equal(expenseId, json.RootElement.GetProperty("expense").GetProperty("id").GetGuid());
+        var expenseElement = json.RootElement.GetProperty("expense");
+        Assert.Equal(expenseId, expenseElement.GetProperty("id").GetGuid());
+        // ADR-0020: owner/attachment fields the frontend needs for ownership-based action
+        // visibility and attachment preview-on-edit. employeeNumber (not employeeId) is what
+        // the frontend actually compares against the authenticated User.employeeNumber, since
+        // /api/auth/me never exposes the Employee GUID (see ADR-0020 addendum).
+        Assert.Equal(await GetEmployeeNumberAsync(employeeId), expenseElement.GetProperty("employeeNumber").GetString());
+        Assert.Equal(attachmentId, expenseElement.GetProperty("receiptAttachmentId").GetGuid());
+        Assert.Equal("et008-test-receipt.pdf", expenseElement.GetProperty("attachmentOriginalFileName").GetString());
     }
 
     [Fact]
@@ -106,6 +114,7 @@ public class ExpenseMaintenanceTests : IAsyncLifetime
         Assert.Equal("Updated description", expenseElement.GetProperty("description").GetString());
         Assert.Equal(250.00m, expenseElement.GetProperty("amount").GetDecimal());
         Assert.Equal("Draft", expenseElement.GetProperty("status").GetString());
+        Assert.Equal(attachmentId, expenseElement.GetProperty("receiptAttachmentId").GetGuid());
     }
 
     [Fact]
@@ -380,6 +389,14 @@ public class ExpenseMaintenanceTests : IAsyncLifetime
         var expense = await dbContext.Expenses.FindAsync(expenseId);
         expense!.Status = status;
         await dbContext.SaveChangesAsync();
+    }
+
+    private async Task<string> GetEmployeeNumberAsync(Guid employeeId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var employee = await dbContext.Employees.FindAsync(employeeId);
+        return employee!.EmployeeNumber;
     }
 
     private static async Task<Guid> UploadAttachmentAsync(HttpClient client)

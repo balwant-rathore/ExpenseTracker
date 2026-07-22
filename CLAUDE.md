@@ -35,6 +35,37 @@ the user says otherwise for the session.
 ## Code Library Validation
 - Always use Context7 to fetch current documentation before generating code that uses an external library — don't rely on training data for framework/library APIs.
 
+# AI Workflow
+
+## CodeGraph Usage (HIGH PRIORITY)
+
+This repository has CodeGraph installed and indexed.
+
+Before exploring or modifying the codebase:
+
+1. Prefer CodeGraph over recursive file searching.
+2. Use CodeGraph to understand architecture before reading files.
+3. Use CodeGraph for:
+   - symbol lookup
+   - caller/callee analysis
+   - dependency analysis
+   - inheritance
+   - interface implementations
+   - impact analysis
+   - cross-project references
+   - API usage tracing
+
+Only read source files after identifying the relevant symbols through CodeGraph.
+
+When implementing new features:
+
+1. Identify impacted components with CodeGraph.
+2. Read only the required files.
+3. Implement changes.
+4. Re-run dependency analysis before completing.
+
+Avoid scanning the entire repository unless explicitly requested.
+
 ## Thinking Depth
 
 - **High effort**: auth/token logic, expense workflow/state transitions, authorization checks,

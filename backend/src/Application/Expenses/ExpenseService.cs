@@ -545,6 +545,14 @@ public class ExpenseService : IExpenseService
         var employeeName = expense.Employee is not null
             ? $"{expense.Employee.FirstName} {expense.Employee.LastName}"
             : null;
+        var employeeNumber = expense.Employee?.EmployeeNumber;
+
+        // Attachment is only Include()'d by GetByIdWithEmployeeAsync/GetPagedAsync (ADR-0020) -
+        // callers that fetch via the plain (non-Include) repository methods leave it unset, so
+        // this stays null rather than throwing, matching the employeeName pattern above.
+        var attachmentOriginalFileName = expense.Attachment is not null
+            ? expense.Attachment.OriginalFileName
+            : null;
 
         return new ExpenseResponse(
             expense.Id,
@@ -562,6 +570,9 @@ public class ExpenseService : IExpenseService
             expense.RejectionComment,
             expense.ReimbursedAt,
             expense.CreatedAt,
-            employeeName);
+            employeeName,
+            employeeNumber,
+            expense.AttachmentId,
+            attachmentOriginalFileName);
     }
 }
