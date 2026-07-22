@@ -1,4 +1,4 @@
-# ADR-0017: Authenticated GET /api/auth/me for Session Restoration
+# ADR-0018: Authenticated GET /api/auth/me for Session Restoration
 
 ## Status
 

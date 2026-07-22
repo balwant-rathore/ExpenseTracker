@@ -57,10 +57,11 @@ work here, nothing in this file is marked `[PARALLEL]`.
       (`D:\ClaudeCode\ExpenseTracker\.claude\worktrees\agent-a5ae531c888c427db`, branch
       `worktree-agent-a5ae531c888c427db`, commit `78bcee6`). Reuses `UserDto` flat shape and the
       existing `[Authorize]` + Employee-record-resolution pattern; 3 new integration tests; full
-      backend suite green (533/533). Updated `docs/SDS.md` §5.1, `AGENTS.md` §8, and
-      `docs/decisions/ADR-0017-auth-me-endpoint.md`. **Not merged/pushed** — sits in its own
-      worktree/branch pending a separate decision on how to land it (see Follow-up Tasks in the
-      final `/implement` summary).
+      backend suite green (533/533). Updated `docs/SDS.md` §5.1, `AGENTS.md` §8, and wrote an ADR
+      (renamed `ADR-0018-auth-me-endpoint.md` after a numbering collision was caught in `/review` —
+      this branch had already used `ADR-0017` for the frontend token-storage decision).
+      **Update (post-review)**: cherry-picked onto this branch as commit `7a1c9c4` — no longer
+      sitting in an unmerged worktree.
 
 ## 3. Core Implementation — Forms & Schemas
 
