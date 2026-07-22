@@ -1,4 +1,5 @@
 using Api.Authentication;
+using Api.Cors;
 using Api.ErrorHandling;
 using Api.Extensions;
 using Domain.Repositories;
@@ -34,6 +35,7 @@ builder.Services.AddScoped<IEmployeeCsvParser, EmployeeCsvParser>();
 builder.Services.AddScoped<EmployeeSeedPlanner>();
 builder.Services.AddScoped<ISeedRunner, EmployeeCsvSeedRunner>();
 
+builder.Services.AddCorsFoundation(builder.Configuration);
 builder.Services.AddAuthFoundation(builder.Configuration);
 builder.Services.AddAttachmentFoundation(builder.Configuration);
 builder.Services.AddNotificationFoundation(builder.Configuration);
@@ -60,6 +62,8 @@ if (app.Environment.IsDevelopment())
 app.UseExceptionHandler();
 
 app.UseHttpsRedirection();
+
+app.UseCors(CorsPolicyNames.Frontend);
 
 app.UseRateLimiter();
 

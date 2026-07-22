@@ -84,6 +84,7 @@ SQL Server
 | Email Notifications | No SMTP integration is implemented. |
 | Notification Output | Notifications are written to an HTML log containing To, CC, Subject, Body and Timestamp. |
 | Password Reset | OTPs are generated for development and logged to the server console as defined in the FRS. |
+| Cross-Origin Requests | A named CORS policy (`Api.Cors.CorsPolicyNames.Frontend`) allows only origins listed in `Cors:AllowedOrigins` configuration (empty/deny-all by default; per-environment allow-list). See `docs/decisions/ADR-0019-backend-cors-policy.md`. |
 
 ### 1.5 Architectural Assumptions
 
