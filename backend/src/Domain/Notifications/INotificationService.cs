@@ -1,6 +1,6 @@
 using Domain.Entities;
 
-namespace Application.Notifications;
+namespace Domain.Notifications;
 
 public interface INotificationService
 {
