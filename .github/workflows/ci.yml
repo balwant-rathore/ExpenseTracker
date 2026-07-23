@@ -57,17 +57,12 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Wait for SQL Server to accept connections
-        run: |
-          for i in $(seq 1 30); do
-            if /opt/mssql-tools18/bin/sqlcmd -S localhost,1433 -U sa -P "$SA_PASSWORD" -C -Q "SELECT 1" > /dev/null 2>&1; then
-              echo "SQL Server is ready"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "SQL Server did not become ready in time" >&2
-          exit 1
+      # No separate "wait for SQL Server" step needed: the services: block's --health-cmd
+      # already runs sqlcmd INSIDE the container (where mssql-tools18 is installed) and GitHub
+      # Actions blocks the job's steps from starting until the service reports healthy - unlike
+      # the ubuntu-latest HOST runner, which has no sqlcmd installed at all (confirmed during
+      # ET020 implementation: a host-side wait step using sqlcmd silently no-ops for its full
+      # timeout and always fails, since the command doesn't exist on the runner image).
 
       # Backend lint/build - surfaces analyzer warnings (AGENTS.md's backend lint convention).
       - name: Backend build
