@@ -53,7 +53,8 @@ public class ExpenseApprovalTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var json = JsonDocument.Parse(body);
-        Assert.Equal("Approved", json.RootElement.GetProperty("expense").GetProperty("status").GetString());
+        // Intentional failing assertion to validate the CI test gate (ET020 task 7.6, scratch only).
+        Assert.Equal("IntentionallyWrongStatus", json.RootElement.GetProperty("expense").GetProperty("status").GetString());
     }
 
     [Fact]
