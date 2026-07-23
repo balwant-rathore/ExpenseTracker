@@ -89,28 +89,41 @@
 
 ## 5. CI Pipeline (`.github/workflows/ci.yml`)
 
-- [ ] 5.1 Scaffold the workflow: trigger on `pull_request` and `push` to `main`; `actions/checkout`,
+- [x] 5.1 Scaffold the workflow: trigger on `pull_request` and `push` to `main`; `actions/checkout`,
       `actions/setup-dotnet` (reading the `backend/global.json` pin from 1.1),
-      `pnpm/action-setup` + `actions/setup-node`
-- [ ] 5.2 Add the SQL Server 2022 service container (`mcr.microsoft.com/mssql/server:2022-latest`)
+      `pnpm/action-setup` + `actions/setup-node` (also added `workflow_dispatch` for validation)
+- [x] 5.2 Add the SQL Server 2022 service container (`mcr.microsoft.com/mssql/server:2022-latest`)
       with an inline CI-only `SA_PASSWORD`, port `1433` mapped, and a healthcheck/retry step before
       proceeding
-- [ ] 5.3 Add the backend lint/build step: `dotnet build backend/ExpenseTracker.sln`
-- [ ] 5.4 Add the frontend lint step: `pnpm --filter frontend lint`
-- [ ] 5.5 Add the frontend build step: `pnpm --filter frontend build`
-- [ ] 5.6 Add the DB migrate step: `dotnet ef database update --project backend/src/Infrastructure
+- [x] 5.3 Add the backend lint/build step: `dotnet build backend/ExpenseTracker.sln`
+- [x] 5.4 Add the frontend lint step: `pnpm --filter frontend lint`
+- [x] 5.5 Add the frontend build step: `pnpm --filter frontend build`
+- [x] 5.6 Add the DB migrate step: `dotnet ef database update --project backend/src/Infrastructure
       --startup-project backend/src/Api`, connection string via `ConnectionStrings__DefaultConnection`
-      pointed at the service container
-- [ ] 5.7 Add the backend unit test step: `dotnet test --filter FullyQualifiedName~UnitTests`
-- [ ] 5.8 Add the backend integration test step:
+      pointed at the service container (added `dotnet tool install --global dotnet-ef` first —
+      not preinstalled on `ubuntu-latest`)
+- [x] 5.7 Add the backend unit test step: `dotnet test --filter FullyQualifiedName~UnitTests`
+- [x] 5.8 Add the backend integration test step:
       `dotnet test --filter FullyQualifiedName~IntegrationTests`
-- [ ] 5.9 Add the frontend unit test step: `pnpm --filter frontend test`
-- [ ] 5.10 Add the e2e step: start the backend API in the background with
-      `ASPNETCORE_ENVIRONMENT=Development` (so the CSV `ISeedRunner` runs), start
-      `pnpm --filter frontend dev`, poll both for readiness, run `pnpm e2e`, then kill both
-      background processes in an `if: always()` cleanup step
-- [ ] 5.11 Push the workflow on a scratch branch (or use `workflow_dispatch`) to validate the full
-      pipeline actually goes green end-to-end before relying on it for this ticket's own PR
+- [x] 5.9 Add the frontend unit test step: `pnpm --filter frontend test`
+- [x] 5.10 Add the e2e step: start the backend API in the background with
+      `ASPNETCORE_ENVIRONMENT=Development` (so the CSV `ISeedRunner` runs) and
+      `RateLimiting__AuthEndpoints__PermitLimit=50` (test-only override, see design.md Risks),
+      start `pnpm --filter frontend dev`, poll both for readiness, run `pnpm e2e`, then kill both
+      background processes in an `if: always()` cleanup step; uploads e2e logs/traces on failure
+- [x] 5.11 Push the workflow on a scratch branch (or use `workflow_dispatch`) to validate the full
+      pipeline actually goes green end-to-end before relying on it for this ticket's own PR —
+      validated via a throwaway scratch-branch PR (#20, closed without merging after validation,
+      since `workflow_dispatch` requires the workflow to already exist on the default branch).
+      Found and fixed 3 real CI-authoring bugs in the process, none related to app code: (1)
+      scratch branch initially missing `backend/global.json` — an artifact of validating on a
+      branch cut from `main`, not a bug in `ci.yml` itself; (2) `pnpm/action-setup@v4` needs an
+      explicit `version:` — the repo has no `packageManager` field in `package.json` to infer one
+      from; (3) a redundant host-side "wait for SQL Server" step used `sqlcmd`, which isn't
+      installed on the `ubuntu-latest` runner (only inside the service container, where the
+      `services:` block's own `--health-cmd` already runs it and gates job start) — removed.
+      Final validated run: all stages green in ~5 minutes
+      (https://github.com/balwant-rathore/ExpenseTracker/actions/runs/29974927503).
 
 ## 6. Consistency Pass
 
