@@ -13,5 +13,6 @@ test('after logging in, /dashboard renders', async ({ page }) => {
   await page.getByRole('button', { name: /log in/i }).click()
 
   await expect(page).toHaveURL(/\/dashboard/)
-  await expect(page.getByText(/welcome/i)).toBeVisible()
+  // ET020 fix: see 02-auth-login.spec.ts's note - no "welcome" text exists in the app.
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 })

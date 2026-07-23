@@ -389,6 +389,29 @@ public class ExpenseApprovalTests : IAsyncLifetime
         await AssertStatusUnchangedAsync(expenseId, ExpenseStatus.Reimbursed);
     }
 
+    // ---- No backward status transitions (7.2.4) ----
+
+    [Fact]
+    public async Task Approve_ComplianceApprovedExpense_Returns422StatusUnchanged()
+    {
+        // Unlike Approve_AlreadyApprovedExpense_Returns422 (same-status re-processing), this
+        // attempts a genuine backward transition: the expense has already moved past Approved
+        // to ComplianceApproved, and re-approving it would revert it to an earlier workflow
+        // stage.
+        var (managerClient, managerId) = await CreateAuthorizedClientAsync(EmployeeRole.Manager);
+        var (reportClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Employee, managerId);
+        var attachmentId = await UploadAttachmentAsync(reportClient);
+        var expenseId = await CreateExpenseAsync(reportClient, attachmentId, "Submit");
+        await SetExpenseStatusAsync(expenseId, ExpenseStatus.ComplianceApproved);
+
+        var response = await managerClient.PostAsync($"/api/expenses/{expenseId}/approve", null);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Contains("BUSINESS_RULE_VIOLATION", body);
+        await AssertStatusUnchangedAsync(expenseId, ExpenseStatus.ComplianceApproved);
+    }
+
     // ---- Rejected expenses are terminal ----
 
     [Fact]

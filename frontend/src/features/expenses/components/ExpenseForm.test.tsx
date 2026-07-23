@@ -107,6 +107,62 @@ describe('ExpenseForm', () => {
       )
     })
 
+    it('shows a required-field message when expense date is left blank', async () => {
+      const createSpy = vi.spyOn(expenseApi, 'createExpense')
+
+      renderWithProviders(<ExpenseForm mode="create" />)
+      await selectCategory('Travel')
+      fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '100' } })
+      fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Taxi fare' } })
+      fireEvent.change(screen.getByLabelText('Receipt attachment'), { target: { files: [pdfFile()] } })
+      fireEvent.click(screen.getByRole('button', { name: /save as draft/i }))
+
+      expect(await screen.findByText('Expense date is required.')).toBeInTheDocument()
+      expect(createSpy).not.toHaveBeenCalled()
+    })
+
+    it('shows a required-field message when no category is selected', async () => {
+      const createSpy = vi.spyOn(expenseApi, 'createExpense')
+
+      renderWithProviders(<ExpenseForm mode="create" />)
+      fireEvent.change(screen.getByLabelText('Expense date'), { target: { value: pastIso } })
+      fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '100' } })
+      fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Taxi fare' } })
+      fireEvent.change(screen.getByLabelText('Receipt attachment'), { target: { files: [pdfFile()] } })
+      fireEvent.click(screen.getByRole('button', { name: /save as draft/i }))
+
+      expect(await screen.findByText('Select a valid category.')).toBeInTheDocument()
+      expect(createSpy).not.toHaveBeenCalled()
+    })
+
+    it('shows a required-field message when amount is left blank', async () => {
+      const createSpy = vi.spyOn(expenseApi, 'createExpense')
+
+      renderWithProviders(<ExpenseForm mode="create" />)
+      fireEvent.change(screen.getByLabelText('Expense date'), { target: { value: pastIso } })
+      await selectCategory('Travel')
+      fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Taxi fare' } })
+      fireEvent.change(screen.getByLabelText('Receipt attachment'), { target: { files: [pdfFile()] } })
+      fireEvent.click(screen.getByRole('button', { name: /save as draft/i }))
+
+      expect(await screen.findByText('Amount is required.')).toBeInTheDocument()
+      expect(createSpy).not.toHaveBeenCalled()
+    })
+
+    it('shows a required-field message when description is left blank', async () => {
+      const createSpy = vi.spyOn(expenseApi, 'createExpense')
+
+      renderWithProviders(<ExpenseForm mode="create" />)
+      fireEvent.change(screen.getByLabelText('Expense date'), { target: { value: pastIso } })
+      await selectCategory('Travel')
+      fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '100' } })
+      fireEvent.change(screen.getByLabelText('Receipt attachment'), { target: { files: [pdfFile()] } })
+      fireEvent.click(screen.getByRole('button', { name: /save as draft/i }))
+
+      expect(await screen.findByText('Description is required.')).toBeInTheDocument()
+      expect(createSpy).not.toHaveBeenCalled()
+    })
+
     it('blocks submission and makes no API call when amount is non-positive, for both Draft and Submit', async () => {
       const createSpy = vi.spyOn(expenseApi, 'createExpense')
 

@@ -210,6 +210,21 @@ public class ExpenseVisibilityTests : IAsyncLifetime
         Assert.DoesNotContain(draftId, ids);
     }
 
+    // Scenario: Finance sees an Approved (not merely non-Draft) expense
+    [Fact]
+    public async Task GetAll_Finance_ApprovedExpense_IsIncluded()
+    {
+        var (employeeClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Employee);
+        var attachmentId = await UploadAttachmentAsync(employeeClient);
+        var approvedId = await CreateExpenseAsync(employeeClient, attachmentId, "Submit");
+        await SetExpenseStatusAsync(approvedId, ExpenseStatus.Approved);
+
+        var (financeClient, _) = await CreateAuthorizedClientAsync(EmployeeRole.Finance);
+        var ids = await GetItemIdsAsync(financeClient, "/api/expenses?pageSize=100");
+
+        Assert.Contains(approvedId, ids);
+    }
+
     // Scenario: Compliance sees an Approved Client Entertainment expense;
     // Scenario: Compliance sees a Compliance Approved Client Entertainment expense
     [Fact]

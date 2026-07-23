@@ -41,6 +41,25 @@ public class RateLimitingTests : IClassFixture<RateLimitedWebApplicationFactory>
     }
 
     [Fact]
+    public async Task RegisterRequestsExceedingConfiguredLimit_Return429()
+    {
+        var client = _factory.CreateClient();
+
+        // See NOTE in ForgotPasswordRequestsExceedingConfiguredLimit_Return429 below - the
+        // Register policy has no other test traffic to accumulate against, so this loops to
+        // the real production default (5 per 300s, see appsettings.json) rather than the
+        // ineffective lower test override.
+        for (var i = 0; i < 5; i++)
+        {
+            await client.PostAsync("/__test/rate-limited-register", content: null);
+        }
+
+        var response = await client.PostAsync("/__test/rate-limited-register", content: null);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+    }
+
+    [Fact]
     public async Task ForgotPasswordRequestsExceedingConfiguredLimit_Return429()
     {
         var client = _factory.CreateClient();

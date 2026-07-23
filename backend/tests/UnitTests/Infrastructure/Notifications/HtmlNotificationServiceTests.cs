@@ -68,6 +68,28 @@ public class HtmlNotificationServiceTests
     }
 
     [Fact]
+    public async Task NotifyAsync_Reimbursed_CcsManagerAndFinance()
+    {
+        var manager = CreateEmployee(role: EmployeeRole.Manager, email: "manager@example.com");
+        var owner = CreateEmployee(email: "owner@example.com", manager: manager);
+        var finance = CreateEmployee(role: EmployeeRole.Finance, email: "finance@example.com");
+        var reimburser = CreateEmployee(role: EmployeeRole.Finance, email: "reimburser@example.com");
+        var expense = CreateExpense(owner.EmployeeId);
+        expense.ReimbursedAt = DateTime.UtcNow;
+        expense.ReimbursedByEmployeeId = reimburser.EmployeeId;
+        var employeeRepository = new FakeEmployeeRepository([owner, manager, finance, reimburser]);
+        var logWriter = new FakeNotificationLogWriter();
+        var service = CreateService(employeeRepository, logWriter);
+
+        await service.NotifyAsync(NotificationEvent.Reimbursed, expense, CancellationToken.None);
+
+        var entry = Assert.Single(logWriter.Entries);
+        Assert.Contains("owner@example.com", entry);
+        Assert.Contains("manager@example.com", entry);
+        Assert.Contains("finance@example.com", entry);
+    }
+
+    [Fact]
     public async Task NotifyAsync_Rejected_HasEmptyCcList()
     {
         var manager = CreateEmployee(role: EmployeeRole.Manager, email: "manager@example.com");

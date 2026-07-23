@@ -31,6 +31,9 @@ public class TestEndpointsStartupFilter : IStartupFilter
                 endpoints.MapPost("/__test/rate-limited", () => Results.Ok())
                     .RequireRateLimiting(AuthRateLimitPolicyNames.Login);
 
+                endpoints.MapPost("/__test/rate-limited-register", () => Results.Ok())
+                    .RequireRateLimiting(AuthRateLimitPolicyNames.Register);
+
                 endpoints.MapPost("/__test/rate-limited-forgot-password", () => Results.Ok())
                     .RequireRateLimiting(AuthRateLimitPolicyNames.ForgotPassword);
 
