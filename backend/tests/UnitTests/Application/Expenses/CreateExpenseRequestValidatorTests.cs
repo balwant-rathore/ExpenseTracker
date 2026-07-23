@@ -85,12 +85,11 @@ public class CreateExpenseRequestValidatorTests
     }
 
     [Fact]
-    public void MissingCurrency_FailsWithoutThrowing()
+    public void MissingCurrency_Passes()
     {
         var result = Validator.Validate(CreateRequest(currency: null));
 
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, e => e.PropertyName == nameof(CreateExpenseRequest.Currency));
+        Assert.True(result.IsValid);
     }
 
     [Fact]

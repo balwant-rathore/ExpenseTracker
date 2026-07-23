@@ -60,9 +60,10 @@ public class ExpenseService : IExpenseService
             return ExpenseResult.Failure(ExpenseFailureReason.AttachmentAlreadyLinked);
         }
 
-        // Category/Currency/Description/Action are non-null by this point: the controller
-        // always runs CreateExpenseRequestValidator (which rejects null/invalid values for all
-        // four) before calling CreateAsync.
+        // Category/Description/Action are non-null by this point: the controller always runs
+        // CreateExpenseRequestValidator (which rejects null/invalid values for all three) before
+        // calling CreateAsync. Currency is the exception: an omitted Currency passes validation
+        // and is defaulted to INR below (docs/FRS.md §4.1.1 "Default to Rupees - INR").
         var status = Enum.Parse<ExpenseAction>(request.Action!) == ExpenseAction.Submit
             ? ExpenseStatus.Submitted
             : ExpenseStatus.Draft;
@@ -79,7 +80,7 @@ public class ExpenseService : IExpenseService
                 ExpenseDate = request.ExpenseDate,
                 Category = Enum.Parse<ExpenseCategory>(request.Category!),
                 Amount = request.Amount,
-                Currency = request.Currency!,
+                Currency = request.Currency ?? CreateExpenseRequestValidator.RequiredCurrency,
                 Description = request.Description!,
                 Status = status,
                 SubmittedAt = status == ExpenseStatus.Submitted ? now : null,
@@ -311,13 +312,14 @@ public class ExpenseService : IExpenseService
             return ExpenseResult.Failure(ExpenseFailureReason.AttachmentNotOwned);
         }
 
-        // Category/Currency/Description are non-null by this point: the controller always
-        // runs UpdateExpenseRequestValidator (which rejects null/invalid values for all
-        // three) before calling UpdateAsync.
+        // Category/Description are non-null by this point: the controller always runs
+        // UpdateExpenseRequestValidator (which rejects null/invalid values for both) before
+        // calling UpdateAsync. Currency is the exception: an omitted Currency passes validation
+        // and is defaulted to INR below (docs/FRS.md §4.1.1 "Default to Rupees - INR").
         expense.ExpenseDate = request.ExpenseDate;
         expense.Category = Enum.Parse<ExpenseCategory>(request.Category!);
         expense.Amount = request.Amount;
-        expense.Currency = request.Currency!;
+        expense.Currency = request.Currency ?? CreateExpenseRequestValidator.RequiredCurrency;
         expense.Description = request.Description!;
         expense.AttachmentId = attachment.Id;
         expense.UpdatedAt = DateTime.UtcNow;
