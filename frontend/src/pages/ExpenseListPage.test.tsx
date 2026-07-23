@@ -53,6 +53,76 @@ describe('ExpenseListPage', () => {
     })
   })
 
+  it('shows the New expense link for an Employee', async () => {
+    vi.spyOn(expenseApi, 'listExpenses').mockResolvedValue(pagedResponse([]))
+    useAuthStore.setState({
+      user: {
+        id: 'employee-1',
+        email: 'e@b.com',
+        employeeNumber: 'EMP1',
+        firstName: 'Em',
+        lastName: 'Ployee',
+        role: 'Employee',
+      },
+      accessToken: 'token',
+      status: 'authenticated',
+    })
+
+    renderWithProviders(<ExpenseListPage />)
+
+    expect(await screen.findByRole('link', { name: 'New expense' })).toBeInTheDocument()
+  })
+
+  it('shows the New expense link for a Manager', async () => {
+    vi.spyOn(expenseApi, 'listExpenses').mockResolvedValue(pagedResponse([]))
+
+    renderWithProviders(<ExpenseListPage />)
+
+    expect(await screen.findByRole('link', { name: 'New expense' })).toBeInTheDocument()
+  })
+
+  it('hides the New expense link for Finance', async () => {
+    vi.spyOn(expenseApi, 'listExpenses').mockResolvedValue(pagedResponse([]))
+    useAuthStore.setState({
+      user: {
+        id: 'finance-1',
+        email: 'f@b.com',
+        employeeNumber: 'EMP1',
+        firstName: 'Fin',
+        lastName: 'Ance',
+        role: 'Finance',
+      },
+      accessToken: 'token',
+      status: 'authenticated',
+    })
+
+    renderWithProviders(<ExpenseListPage />)
+    await waitFor(() => expect(expenseApi.listExpenses).toHaveBeenCalled())
+
+    expect(screen.queryByRole('link', { name: 'New expense' })).not.toBeInTheDocument()
+  })
+
+  it('hides the New expense link for a Compliance Officer', async () => {
+    vi.spyOn(expenseApi, 'listExpenses').mockResolvedValue(pagedResponse([]))
+    useAuthStore.setState({
+      user: {
+        id: 'compliance-1',
+        email: 'c@b.com',
+        employeeNumber: 'EMP1',
+        firstName: 'Comp',
+        lastName: 'Liance',
+        role: 'ComplianceOfficer',
+      },
+      accessToken: 'token',
+      status: 'authenticated',
+    })
+
+    renderWithProviders(<ExpenseListPage />)
+    await waitFor(() => expect(expenseApi.listExpenses).toHaveBeenCalled())
+
+    expect(screen.queryByRole('link', { name: 'New expense' })).not.toBeInTheDocument()
+  })
+
   it("renders exactly the backend's returned set for a paged result", async () => {
     vi.spyOn(expenseApi, 'listExpenses').mockResolvedValue(
       pagedResponse([makeExpense({ id: 'e1', expenseNumber: 'EXP-1' })]),

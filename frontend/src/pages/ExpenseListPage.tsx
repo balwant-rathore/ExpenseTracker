@@ -52,7 +52,9 @@ export function ExpenseListPage() {
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-medium">Expenses</h1>
-        <Button render={<Link to="/expenses/new" />}>New expense</Button>
+        {(user?.role === 'Employee' || user?.role === 'Manager') && (
+          <Button render={<Link to="/expenses/new" />}>New expense</Button>
+        )}
       </div>
 
       <ExpenseFilters

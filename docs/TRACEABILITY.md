@@ -91,10 +91,10 @@ baseline; any warning introduced later is genuinely new, not pre-existing noise.
 | AC / BR ID | Requirement (short) | Test Layer | Test File | Test Method/Describe | Status |
 |---|---|---|---|---|---|
 | 4.1.1 — Expense Number | Mandatory field, compliant with BR-09 | Unit + Integration | `UnitTests/Application/Expenses/ExpenseNumberGeneratorTests.cs`; `IntegrationTests/ExpenseSubmissionTests.cs` | `GenerateAsync_ReflectsCompanyClockDate`, `GenerateAsync_IncrementsPastExistingSameDayCount`; `Create_ClientSuppliedExpenseNumber_IsIgnored` | Covered |
-| 4.1.1 — Expense Date | Mandatory field, compliant with BR-02, BR-10 | Unit | `CreateExpenseRequestValidatorTests.cs`; `UnitTests/.../ExpenseServiceTests.cs` | `MissingExpenseDate_Fails`; `CreateAsync_FutureExpenseDate_Fails`, `UpdateAsync_FutureExpenseDate_Fails` (BR-02 only — BR-10 storage aspect flagged separately below) | Covered (BR-02); see BR-10 flag |
+| 4.1.1 — Expense Date | Mandatory field, compliant with BR-02, BR-10 | Unit | `CreateExpenseRequestValidatorTests.cs`; `UnitTests/.../ExpenseServiceTests.cs` | `MissingExpenseDate_Fails`; `CreateAsync_FutureExpenseDate_Fails`, `UpdateAsync_FutureExpenseDate_Fails` (BR-02 only — BR-10 storage aspect covered separately below) | Covered (BR-02); see BR-10 resolution note |
 | 4.1.1 — Expense Category | Mandatory field, valid values only (§6) | Unit | `CreateExpenseRequestValidatorTests.cs`; `UnitTests/Domain/Enums/ExpenseCategoryTests.cs` | `CategoryOutsideDefinedValues_Fails`, `MissingCategory_FailsWithoutThrowing`; `ExpenseCategory_ContainsExactlySevenValues` | Covered |
 | 4.1.1 — Amount | Mandatory field, compliant with BR-01 | Unit | `UnitTests/.../ExpenseServiceTests.cs` | `CreateAsync_AmountNotPositive_Fails` (Theory), `UpdateAsync_AmountNotPositive_Fails` | Covered |
-| 4.1.1 — Currency | Mandatory field, defaults to INR | Unit | `CreateExpenseRequestValidatorTests.cs` | `CurrencyOtherThanInr_Fails`, `MissingCurrency_FailsWithoutThrowing` | Covered — see ambiguity flag below |
+| 4.1.1 — Currency | Mandatory field, defaults to INR | Unit | `CreateExpenseRequestValidatorTests.cs`; `UnitTests/.../ExpenseServiceTests.cs` | `CurrencyOtherThanInr_Fails`, `MissingCurrency_Passes`; `CreateAsync_MissingCurrency_DefaultsToInr` | Covered — see resolution note below |
 | 4.1.1 — Description | Mandatory field, ≤500 characters | Unit | `CreateExpenseRequestValidatorTests.cs` | `MissingDescription_Fails`, `DescriptionOverFiveHundredCharacters_Fails`, `DescriptionAtFiveHundredCharacters_Passes` | Covered |
 | 4.1.1 — Receipt Attachment | Mandatory field, compliant with BR-03 | Unit | `UnitTests/.../ExpenseServiceTests.cs`; `ExpenseConfigurationTests.cs` | `CreateAsync_AttachmentNotFound_Fails`; `Expense_AttachmentId_IsUniqueIndex` | Covered |
 | 4.1.2 (Draft) | Save as Draft → status `Draft` | Integration + Unit | `IntegrationTests/ExpenseSubmissionTests.cs`; `UnitTests/.../ExpenseServiceTests.cs` | `Create_DraftAction_Returns201WithDraftStatus`; `CreateAsync_Draft_HasNoSubmittedAt`, `CreateAsync_Draft_SendsNoNotification` | Covered |
@@ -117,16 +117,19 @@ baseline; any warning introduced later is genuinely new, not pre-existing noise.
 > dedicated omitted-field test would be a byte-for-byte duplicate assertion of an existing test,
 > not new coverage — not added.
 >
-> **Ambiguity flagged, not silently resolved (Currency "defaults to INR"):** `docs/FRS.md` 4.1.1
-> lists Currency as a mandatory field with the rule "Default to Rupees - INR," but the
-> implemented/tested behavior is stricter: `CurrencyOtherThanInr_Fails` and
-> `MissingCurrency_FailsWithoutThrowing` both show currency must be explicitly supplied as
-> `"INR"` — an omitted currency is REJECTED, not defaulted. This is a plausible reading (single
-> supported currency, always explicit) but is not what "defaults to" literally says. Per
-> `AGENTS.md` §13 / proposal.md's scope boundary, this is flagged here rather than silently
-> changed — changing production code to actually default an omitted currency would be a
-> business-logic change outside ET020's "verify and gate, don't alter behavior" scope.
-> **Tracked as ET021** (`docs/TICKETS.md`) for future resolution.
+> **Resolved (ET021) — Currency now actually defaults to INR:** the ET020 audit flagged that
+> `docs/FRS.md` 4.1.1's "Default to Rupees - INR" rule wasn't literally implemented — an omitted
+> `currency` was REJECTED (`CurrencyOtherThanInr_Fails`/`MissingCurrency_FailsWithoutThrowing`),
+> not defaulted. `et021-fix-drifts` (`openspec/changes/archive/`) fixed this: both
+> `CreateExpenseRequestValidator` and `UpdateExpenseRequestValidator` now allow an omitted
+> `currency` to pass validation, and `ExpenseService.CreateAsync`/`UpdateAsync` default it to
+> `"INR"` (`request.Currency ?? CreateExpenseRequestValidator.RequiredCurrency`). An explicitly
+> supplied non-`INR` value is still rejected. See the `expense-submission`/`expense-maintenance`
+> spec deltas' "Omitted currency defaults to INR" scenarios and
+> `CreateExpenseRequestValidatorTests.MissingCurrency_Passes` /
+> `UpdateExpenseRequestValidatorTests.MissingCurrency_Passes` /
+> `ExpenseServiceTests.CreateAsync_MissingCurrency_DefaultsToInr` /
+> `ExpenseServiceTests.UpdateAsync_MissingCurrency_DefaultsToInr`.
 
 ### 4.2 Expense Edit
 
@@ -299,22 +302,24 @@ baseline; any warning introduced later is genuinely new, not pre-existing noise.
 | BR-07 | Rejected expenses are read-only | Unit | `UnitTests/.../ExpenseServiceTests.cs` | `UpdateAsync_NonEditableStatus_ReturnsNotEditable(Rejected)`, `CancelAsync_NonCancellableStatus_ReturnsNotCancellable(Rejected)`, `ApproveAsync_NonSubmittedStatus_ReturnsNotSubmitted(Rejected)`, `RejectAsync_NonSubmittedStatus_ReturnsNotSubmitted(Rejected)` | Covered |
 | BR-08 | Finance can reimburse only approved (or compliance-approved) expenses | Integration | `ExpenseReimbursementTests.cs` | `Reimburse_ApprovedNonClientEntertainment_Returns200Reimbursed`, `Reimburse_ComplianceApprovedClientEntertainment_Returns200Reimbursed`, `Reimburse_NonEligibleStatus_Returns422StatusUnchanged` (Theory) | Covered |
 | BR-09 | Expense number shall be generated automatically | Unit + Integration | `ExpenseNumberGeneratorTests.cs`; `ExpenseSubmissionTests.cs` | `GenerateAsync_ReflectsCompanyClockDate`, `GenerateAsync_IncrementsPastExistingSameDayCount`, `CreateAsync_RetriesOnExpenseNumberConflict_ThenSucceeds`; `Create_ClientSuppliedExpenseNumber_IsIgnored` | Covered |
-| BR-10 | All dates shall be stored in the company's local timezone | — | — | — | **GAP — flagged for user decision, see note below** |
+| BR-10 | All dates shall be stored in the company's local timezone | — | — | — | **Resolved (ET021) — reaffirmed satisfied, no code change** |
 
-> **Genuine gap flagged, NOT silently patched (BR-10):** no test asserts that persisted
-> `Expense` timestamps (`CreatedAt`, `SubmittedAt`, `ApprovedAt`, `ComplianceApprovedAt`,
-> `RejectedAt`, `ReimbursedAt`) are actually stored in company-local time. Tracing the
-> implementation: `ExpenseService.cs` writes all of these via raw `DateTime.UtcNow`;
-> `ICompanyClock` (the local-timezone abstraction) is only consulted for the BR-02 "is this
-> date in the future" comparison and for report date-range bounds in `ReportService.cs` — never
-> at the point audit timestamps are actually persisted. `ExpenseDate` itself is a `DateOnly`
-> with no time/timezone component, so it's not affected either way. This reads as a genuine
-> implementation gap against BR-10's literal wording, not merely a missing test — per
-> `proposal.md`'s explicit scope boundary ("if the audit surfaces a genuine functional gap...
-> that is a separate defect to be raised... not silently patched inside ET020") this is
-> deliberately left unresolved here pending a decision on whether UTC-storage-with-local-display
-> is the intended interpretation or an actual BR-10 violation. **Tracked as ET021**
-> (`docs/TICKETS.md`) for future resolution — not fixed in ET020 per its verify-only scope.
+> **Resolved (ET021) — reaffirmed satisfied per ADR-0009/ADR-0016, not a gap:** the ET020 audit
+> flagged that `Expense` audit timestamps (`CreatedAt`, `SubmittedAt`, `ApprovedAt`,
+> `ComplianceApprovedAt`, `RejectedAt`, `ReimbursedAt`) are written via raw `DateTime.UtcNow`
+> rather than through `ICompanyClock`, questioning whether this violates BR-10. Re-investigated
+> during `et021-fix-drifts`'s `/spec`: `ADR-0009` ("Company-Local Timezone for Expense Date
+> Comparisons") and `ADR-0016` ("...for Monthly Reimbursement Report Month Boundaries") — both
+> `Accepted` — already deliberately decided, twice, that these fields stay UTC instants,
+> explicitly citing DST-transition risk as the reason not to store local wall-clock time
+> directly. Both ADRs hold that BR-10 is satisfied by `ICompanyClock`-based local-timezone
+> conversion at the point a calendar-day/local-time comparison actually happens — BR-02's
+> future-date check, the `EXP-yyyyMMdd-XXXX` expense-number date prefix, and the monthly report's
+> month boundary (`ReportService.GetMonthlyReimbursementAsync`) all already do this — not by
+> changing what's stored in the `DateTime` columns themselves. Per user decision recorded in
+> `openspec/changes/archive/.../et021-fix-drifts/proposal.md`, this item is closed as a
+> documentation correction: no change to `ExpenseService.cs`, `ICompanyClock`, or
+> `ReportService.cs`. `ADR-0009`/`ADR-0016` are unchanged (reaffirmed, not superseded).
 
 ---
 
@@ -338,13 +343,15 @@ not a duplicate of the backend AC/BR rows above.
 | Finance search filters submit each field individually (Expense Number, Employee Name, Date Range, Category, Status) | 7.1.1 | `features/expenses/components/FinanceSearchFilters.test.tsx` | `submits expenseNumber alone...`, `...employeeName alone...`, `...date range`, `submits category alone...` (new), `submits status alone...` (new), `combines category and status...` | Added (ET020) |
 | Role/ownership/status-based review-action button visibility (BR-06 etc.) | 5.1.6 etc. | `ExpenseDetail.test.tsx`; `features/expenses/utils/reviewEligibility.test.ts` | extensive per-role/status/category matrix | Covered |
 
-> **UI defect flagged, not silently fixed:** `pages/ExpenseListPage.tsx` renders the "New
-> expense" link unconditionally for every role, but `/expenses/new` is route-guarded to
-> `Employee`/`Manager` only (`routes/AppRouter.tsx`) — a Finance or ComplianceOfficer user
-> would see a clickable button that silently bounces them to `/dashboard` via `RequireRole`.
-> Not a security issue (the route guard already blocks it) — a cosmetic/UX inconsistency. Per
-> proposal.md's scope boundary (no `frontend/pages` changes in ET020 unless already agreed), not
-> fixed here. **Tracked as ET021** (`docs/TICKETS.md`) alongside the two backend findings.
+> **Resolved (ET021) — New expense link now gated to Employee/Manager:** the ET020 audit flagged
+> that `pages/ExpenseListPage.tsx` rendered the "New expense" link unconditionally for every role,
+> while `/expenses/new` is route-guarded to `Employee`/`Manager` only (`routes/AppRouter.tsx`) —
+> a Finance or ComplianceOfficer user would see a clickable link that silently bounced them to
+> `/dashboard` via `RequireRole`. Not a security issue (the route guard already blocked it) — a
+> cosmetic/UX inconsistency, fixed in `et021-fix-drifts` (`openspec/changes/archive/`):
+> `ExpenseListPage.tsx` now renders the link only when `user?.role === 'Employee' || 'Manager'`,
+> matching the route guard's `allowedRoles`. See
+> `ExpenseListPage.test.tsx`'s four role-visibility tests.
 
 ## New E2E Coverage (ET020 gap-fill)
 

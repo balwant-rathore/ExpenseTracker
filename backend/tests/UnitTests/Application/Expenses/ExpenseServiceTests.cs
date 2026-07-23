@@ -126,6 +126,21 @@ public class ExpenseServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_MissingCurrency_DefaultsToInr()
+    {
+        var expenseRepository = new FakeExpenseRepository();
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        var attachment = CreateAttachment(EmployeeId);
+        attachmentRepository.Attachments.Add(attachment);
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.CreateAsync(EmployeeId, CreateRequest(attachment.Id, currency: null), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("INR", result.Expense!.Currency);
+    }
+
+    [Fact]
     public async Task CreateAsync_Submit_HasSubmittedAtPopulated()
     {
         var expenseRepository = new FakeExpenseRepository();
@@ -614,6 +629,23 @@ public class ExpenseServiceTests
         Assert.Equal("Draft", result.Expense!.Status);
         Assert.Equal(999m, result.Expense.Amount);
         Assert.Equal("Updated", result.Expense.Description);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_MissingCurrency_DefaultsToInr()
+    {
+        var attachment = CreateAttachment(EmployeeId);
+        var expense = CreateDraftExpense(EmployeeId, attachment.Id);
+        var expenseRepository = new FakeExpenseRepository();
+        expenseRepository.Expenses.Add(expense);
+        var attachmentRepository = new FakeExpensesAttachmentRepository();
+        attachmentRepository.Attachments.Add(attachment);
+        var service = CreateService(expenseRepository, attachmentRepository);
+
+        var result = await service.UpdateAsync(EmployeeId, expense.Id, UpdateRequest(attachment.Id, currency: null), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("INR", result.Expense!.Currency);
     }
 
     [Fact]
@@ -1485,12 +1517,12 @@ public class ExpenseServiceTests
     }
 
     private static UpdateExpenseRequest UpdateRequest(
-        Guid attachmentId, decimal amount = 100m, DateOnly? expenseDate = null, string description = "Updated expense") => new()
+        Guid attachmentId, decimal amount = 100m, DateOnly? expenseDate = null, string description = "Updated expense", string? currency = "INR") => new()
         {
             ExpenseDate = expenseDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
             Category = "Travel",
             Amount = amount,
-            Currency = "INR",
+            Currency = currency,
             Description = description,
             ReceiptAttachmentId = attachmentId,
         };
@@ -1561,12 +1593,12 @@ public class ExpenseServiceTests
         };
 
     private static CreateExpenseRequest CreateRequest(
-        Guid attachmentId, decimal amount = 100m, DateOnly? expenseDate = null, string action = "Draft") => new()
+        Guid attachmentId, decimal amount = 100m, DateOnly? expenseDate = null, string action = "Draft", string? currency = "INR") => new()
         {
             ExpenseDate = expenseDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
             Category = "Travel",
             Amount = amount,
-            Currency = "INR",
+            Currency = currency,
             Description = "Test expense",
             ReceiptAttachmentId = attachmentId,
             Action = action,

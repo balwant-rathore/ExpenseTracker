@@ -24,6 +24,7 @@ public class CreateExpenseRequestValidator : AbstractValidator<CreateExpenseRequ
 
         RuleFor(x => x.Currency)
             .Equal(RequiredCurrency)
+            .When(x => x.Currency is not null)
             .WithMessage("Currency must be INR.");
 
         RuleFor(x => x.Description)
