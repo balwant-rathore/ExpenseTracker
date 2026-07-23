@@ -197,7 +197,6 @@
       extensive local debugging accumulated enough duplicate-dated test data in the shared dev DB
       to produce a misleading false negative unrelated to actual code correctness (documented in
       design.md Risks); the CI run uses a fresh database and exactly matches the real pipeline.
-- [ ] 8.2 Run `openspec archive et020-quality-release`
-- [ ] 8.2 Run `openspec archive et020-quality-release`
+- [x] 8.2 Run `openspec archive et020-quality-release`
 - [ ] 8.3 Update `docs/TICKETS.md` ET020 status to `PR open (#N)` once the PR is opened (per the
       `/pr` flow), then to `Done` after merge
