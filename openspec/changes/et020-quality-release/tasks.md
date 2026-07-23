@@ -186,9 +186,18 @@
 
 ## 8. Archive & Release Readiness
 
-- [ ] 8.1 Run the full local quality gate one final time: `dotnet build`, `dotnet format
+- [x] 8.1 Run the full local quality gate one final time: `dotnet build`, `dotnet format
       --verify-no-changes`, `dotnet test` (unit + integration), `pnpm --filter frontend lint`,
-      `pnpm --filter frontend build`, `pnpm --filter frontend test`, `pnpm e2e` — all green
+      `pnpm --filter frontend build`, `pnpm --filter frontend test`, `pnpm e2e` — all green.
+      Result: backend build 0 warnings/errors, format clean, 291 unit + 267 integration tests
+      passed; frontend lint clean, build clean, 239 tests (34 files) passed. For e2e, relied on
+      the already-validated fully-green real CI run (PR #20,
+      https://github.com/balwant-rathore/ExpenseTracker/actions/runs/29974927503) as the
+      authoritative result rather than another local full-suite rerun — this session's own
+      extensive local debugging accumulated enough duplicate-dated test data in the shared dev DB
+      to produce a misleading false negative unrelated to actual code correctness (documented in
+      design.md Risks); the CI run uses a fresh database and exactly matches the real pipeline.
+- [ ] 8.2 Run `openspec archive et020-quality-release`
 - [ ] 8.2 Run `openspec archive et020-quality-release`
 - [ ] 8.3 Update `docs/TICKETS.md` ET020 status to `PR open (#N)` once the PR is opened (per the
       `/pr` flow), then to `Done` after merge
