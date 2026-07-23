@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# CI-only ephemeral values (not real secrets, never used outside this workflow run - see
+# openspec/changes/et020-quality-release/design.md Decision 3):
+#   - SA_PASSWORD: throwaway SQL Server container password, lives only for this job's lifetime.
+#   - Jwt__SigningKey: throwaway JWT signing key for this job's ephemeral backend process.
+env:
+  SA_PASSWORD: "Ci-Only-Sql-P@ssw0rd-2026"
+  ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=ExpenseTrackerDb;User Id=sa;Password=Ci-Only-Sql-P@ssw0rd-2026;TrustServerCertificate=True;Encrypt=True;"
+  Jwt__SigningKey: "ci-only-ephemeral-signing-key-never-used-outside-this-workflow-run-0000"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Ci-Only-Sql-P@ssw0rd-2026"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Ci-Only-Sql-P@ssw0rd-2026 -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: backend/global.json
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for SQL Server to accept connections
+        run: |
+          for i in $(seq 1 30); do
+            if /opt/mssql-tools18/bin/sqlcmd -S localhost,1433 -U sa -P "$SA_PASSWORD" -C -Q "SELECT 1" > /dev/null 2>&1; then
+              echo "SQL Server is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "SQL Server did not become ready in time" >&2
+          exit 1
+
+      # Backend lint/build - surfaces analyzer warnings (AGENTS.md's backend lint convention).
+      - name: Backend build
+        run: dotnet build backend/ExpenseTracker.sln
+
+      # Frontend lint - oxlint, matches .oxlintrc.json.
+      - name: Frontend lint
+        run: pnpm --filter frontend lint
+
+      - name: Frontend build
+        run: pnpm --filter frontend build
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 9.0.18
+
+      # Migrated (schema present) only - integration tests self-seed their own fixture data via
+      # IAsyncLifetime, so no CSV seed import is needed for this step (design.md Decision 3).
+      - name: Apply EF Core migrations
+        run: dotnet ef database update --project backend/src/Infrastructure --startup-project backend/src/Api
+
+      - name: Backend unit tests
+        run: dotnet test backend/ExpenseTracker.sln --filter FullyQualifiedName~UnitTests
+
+      - name: Backend integration tests
+        run: dotnet test backend/ExpenseTracker.sln --filter FullyQualifiedName~IntegrationTests
+
+      - name: Frontend unit tests
+        run: pnpm --filter frontend test
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # E2E needs a migrated AND seeded database (registerOrLogin depends on real seeded
+      # EmployeeNumbers) plus the real API and frontend dev server running (design.md Decision 3).
+      # ASPNETCORE_ENVIRONMENT=Development triggers ISeedRunner's CSV import on startup.
+      # RateLimiting__AuthEndpoints__PermitLimit is raised for this stage only - the e2e suite's
+      # registerOrLogin pattern makes far more auth calls across 8 spec files than the real
+      # production limit (5 per 300s) permits; the limiter's actual behavior at the real limit
+      # stays independently verified by RateLimitingTests.cs (design.md Risks).
+      - name: Start backend (Development, seeded)
+        run: |
+          nohup dotnet run --no-build --project backend/src/Api --urls http://localhost:5158 \
+            > backend-e2e.log 2>&1 &
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          RateLimiting__AuthEndpoints__PermitLimit: "50"
+
+      - name: Start frontend dev server
+        run: nohup pnpm --filter frontend dev > frontend-e2e.log 2>&1 &
+
+      - name: Wait for backend and frontend to be ready
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5158/api/health > /dev/null && break
+            sleep 2
+          done
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5173 > /dev/null && break
+            sleep 2
+          done
+
+      - name: Run e2e tests
+        run: pnpm e2e
+
+      - name: Upload e2e/backend logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-logs
+          path: |
+            backend-e2e.log
+            frontend-e2e.log
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - name: Stop background dev servers
+        if: always()
+        run: |
+          pkill -f "dotnet.*backend/src/Api" || true
+          pkill -f "vite" || true

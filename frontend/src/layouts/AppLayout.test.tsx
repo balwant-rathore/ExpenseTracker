@@ -51,4 +51,26 @@ describe('AppLayout', () => {
 
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
   })
+
+  // Scenario: only Finance sees the Finance Search and Monthly Report nav links
+  it('shows Finance Search and Monthly Report nav links for Finance', () => {
+    setUser('Finance')
+
+    renderLayout()
+
+    expect(screen.getByRole('link', { name: 'Finance Search' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Monthly Report' })).toBeInTheDocument()
+  })
+
+  it.each(['Employee', 'Manager', 'ComplianceOfficer'] as const)(
+    'hides Finance Search and Monthly Report nav links for %s',
+    (role) => {
+      setUser(role)
+
+      renderLayout()
+
+      expect(screen.queryByRole('link', { name: 'Finance Search' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Monthly Report' })).not.toBeInTheDocument()
+    },
+  )
 })

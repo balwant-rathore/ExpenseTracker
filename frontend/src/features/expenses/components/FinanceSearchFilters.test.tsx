@@ -44,6 +44,56 @@ describe('FinanceSearchFilters', () => {
     )
   })
 
+  it('submits category alone when only that filter is selected', async () => {
+    const onSearch = vi.fn()
+    renderWithProviders(<FinanceSearchFilters onSearch={onSearch} />)
+
+    fireEvent.click(screen.getByRole('combobox', { name: /category/i }))
+    const travelOption = await screen.findByRole('option', { name: /travel/i })
+    fireEvent.pointerDown(travelOption, { button: 0 })
+    fireEvent.pointerUp(travelOption, { button: 0 })
+    fireEvent.click(travelOption)
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /category/i })).toHaveTextContent(/travel/i),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /^search$/i }))
+
+    expect(onSearch).toHaveBeenCalledWith({
+      expenseNumber: undefined,
+      employeeName: undefined,
+      category: 'Travel',
+      status: undefined,
+      fromDate: undefined,
+      toDate: undefined,
+    })
+  })
+
+  it('submits status alone when only that filter is selected', async () => {
+    const onSearch = vi.fn()
+    renderWithProviders(<FinanceSearchFilters onSearch={onSearch} />)
+
+    fireEvent.click(screen.getByRole('combobox', { name: /status/i }))
+    const submittedOption = await screen.findByRole('option', { name: /submitted/i })
+    fireEvent.pointerDown(submittedOption, { button: 0 })
+    fireEvent.pointerUp(submittedOption, { button: 0 })
+    fireEvent.click(submittedOption)
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /status/i })).toHaveTextContent(/submitted/i),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /^search$/i }))
+
+    expect(onSearch).toHaveBeenCalledWith({
+      expenseNumber: undefined,
+      employeeName: undefined,
+      category: undefined,
+      status: 'Submitted',
+      fromDate: undefined,
+      toDate: undefined,
+    })
+  })
+
   it('combines category and status into one submitted request', async () => {
     const onSearch = vi.fn()
     renderWithProviders(<FinanceSearchFilters onSearch={onSearch} />)

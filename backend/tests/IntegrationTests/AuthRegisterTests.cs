@@ -170,6 +170,24 @@ public class AuthRegisterTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task MalformedEmail_ReturnsValidationErrorOnEmailField()
+    {
+        var employeeNumber = await CreateEmployeeAsync();
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest(employeeNumber, "not-an-email", "Passw0rd1"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var error = body.GetProperty("error");
+        Assert.Equal("VALIDATION_ERROR", error.GetProperty("code").GetString());
+        var fields = error.GetProperty("fields").EnumerateArray().Select(f => f.GetString()).ToList();
+        Assert.Contains("Email", fields);
+    }
+
+    [Fact]
     public async Task NonCompliantPasswordIsRejectedWithAFieldLevelError()
     {
         var employeeNumber = await CreateEmployeeAsync();

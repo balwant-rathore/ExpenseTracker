@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { E2E_EMAIL, E2E_FIRST_NAME, E2E_PASSWORD } from './testData'
+import { E2E_EMAIL, E2E_PASSWORD } from './testData'
 
 // Runs after 01-auth-registration.spec.ts (numeric filename prefix + playwright.config.ts's
 // workers: 1 / fullyParallel: false ensure spec files execute in this order), so the reserved
@@ -11,5 +11,8 @@ test('logs in with the reserved account and lands on the dashboard', async ({ pa
   await page.getByRole('button', { name: /log in/i }).click()
 
   await expect(page).toHaveURL(/\/dashboard/)
-  await expect(page.getByText(new RegExp(`welcome, ${E2E_FIRST_NAME}`, 'i'))).toBeVisible()
+  // ET020 fix: this used to assert a "Welcome, {name}" banner that no longer exists anywhere
+  // in the app (RegistrationForm/LoginForm navigate straight to /dashboard) - the Dashboard
+  // heading is the real, current signal that login succeeded and the page rendered.
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 })

@@ -54,6 +54,13 @@ describe('RejectionDialog', () => {
     )
   })
 
+  it('shows the inline required-comment error message once the field is touched', async () => {
+    openDialog()
+    fireEvent.change(screen.getByLabelText(/rejection comment/i), { target: { value: '   ' } })
+
+    expect(await screen.findByText('A comment is required')).toBeInTheDocument()
+  })
+
   it('calls the reject endpoint when action is managerReject', async () => {
     const rejectSpy = vi.spyOn(expenseApi, 'rejectExpense').mockResolvedValue(makeEnvelope())
     openDialog('managerReject')
