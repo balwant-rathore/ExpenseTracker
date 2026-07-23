@@ -7,7 +7,7 @@ ET001–ET019 shipped the full system with substantial test coverage already in 
 | Backend unit | `backend/tests/UnitTests/**/*.cs` | 45 files |
 | Backend integration | `backend/tests/IntegrationTests/*.cs` | 37 files (all `WebApplicationFactory<Program>`-based, real SQL Server, no in-memory provider) |
 | Frontend component | `frontend/src/**/*.test.{ts,tsx}` | 34 files (Vitest + RTL) |
-| E2E | `e2e/01`–`07-*.spec.ts` | 7 files (Playwright, `chromium` only, `workers: 1`, serial) |
+| E2E | `e2e/01`–`08-*.spec.ts` | 8 files after this change (7 pre-existing + `08-dashboard-reports.spec.ts`; Playwright, `chromium` only, `workers: 1`, serial) |
 
 No `.github/` directory and no CI pipeline exist yet (ET001 explicitly deferred CI). This design
 covers: (1) the audit method for the FRS traceability matrix, (2) the e2e gap for ET019's
@@ -118,18 +118,25 @@ Single workflow, single job, `ubuntu-latest`, stages run sequentially as job ste
 stops the job — GitHub Actions' default behavior, satisfying "fail at the first failing stage"
 without needing separate dependent jobs):
 
-1. **Checkout + setup**: `actions/checkout`, `actions/setup-dotnet` (version from the SDK installed
-   locally — no `global.json` pins one today; CI will add `backend/global.json` pinning the exact
-   `dotnet --version` currently in use, since GitHub Actions runners are not guaranteed to default
-   to the same .NET 9 patch version — this is a new file, flagged as an open question below since
-   it's a small deviation-by-addition, not by contradiction), `actions/setup-node` (pnpm via
-   `pnpm/action-setup`), matching `pnpm-workspace.yaml`.
+1. **Checkout + setup**: `actions/checkout`, `actions/setup-dotnet` reading `backend/global.json`
+   (added in Phase 1, pinning the exact local `dotnet --version` so CI can't drift onto a
+   different .NET 9 patch version), `pnpm/action-setup@v4` with an explicit `version: 11` (the
+   repo has no `packageManager` field in `package.json` to infer a version from — discovered
+   during CI validation, where the action fails outright without one), `actions/setup-node`
+   matching `pnpm-workspace.yaml`. `dotnet tool install --global dotnet-ef --version 9.0.18` runs
+   before the migrate step, since `dotnet-ef` is a locally-installed global tool, not something
+   `ubuntu-latest` ships with.
 2. **SQL Server service container**: `mcr.microsoft.com/mssql/server:2022-latest` as a GitHub
    Actions `services:` container, `SA_PASSWORD` set to a CI-only generated value (lives only in the
    ephemeral workflow file/run, never a real secret, never touches `appsettings.*.json` or `.env`
    per `CLAUDE.md`'s "always ask" list — that list is about *this repo's real* secrets, not a
-   throwaway CI container password), port `1433` mapped, with a healthcheck retry loop before the
-   next step.
+   throwaway CI container password), port `1433` mapped, with `--health-cmd`/`--health-retries`
+   options. **No separate host-side "wait for SQL Server" job step is needed or used**: GitHub
+   Actions itself blocks the job's steps from starting until the service container's own health
+   check passes. An earlier draft of this workflow added a redundant host-side wait step running
+   `sqlcmd` directly on the `ubuntu-latest` runner — that command doesn't exist on the runner
+   (`mssql-tools18` is only installed inside the service container, where the health check itself
+   runs it), so the step always failed; removed during CI validation.
 3. **Backend lint/build**: `dotnet build backend/ExpenseTracker.sln` (surfaces analyzer warnings,
    matches `AGENTS.md`'s "backend analyzers via `dotnet build`" convention — no
    `TreatWarningsAsErrors` exists today, so CI doesn't newly fail on warnings that aren't failing
@@ -148,11 +155,14 @@ without needing separate dependent jobs):
 9. **Frontend unit tests**: `pnpm --filter frontend test` (Vitest, no backend dependency).
 10. **E2E**: start the backend API in the background (`ASPNETCORE_ENVIRONMENT=Development` so the
     `ISeedRunner` import runs — this is *required* here, unlike step 8, because e2e's
-    `registerOrLogin` depends on real seeded `EmployeeNumber`s), start the frontend
-    (`pnpm --filter frontend dev`, matching `playwright.config.ts`'s hardcoded `baseURL:
-    'http://localhost:5173'`), poll both `/api/health` and `http://localhost:5173` until ready
-    (simple curl-retry loop — no new dependency added for this), then `pnpm e2e`. Both background
-    processes are killed in an `if: always()` cleanup step regardless of test outcome.
+    `registerOrLogin` depends on real seeded `EmployeeNumber`s — and
+    `RateLimiting__AuthEndpoints__PermitLimit=50`, a test-only override for this stage's backend
+    process only, see Risks below for why), start the frontend (`pnpm --filter frontend dev`,
+    matching `playwright.config.ts`'s hardcoded `baseURL: 'http://localhost:5173'`), poll both
+    `/api/health` and `http://localhost:5173` until ready (simple curl-retry loop — no new
+    dependency added for this), then `pnpm e2e`. Both background processes are killed in an
+    `if: always()` cleanup step regardless of test outcome; e2e logs/traces upload as an artifact
+    on failure.
 
 **Alternative considered for step 10**: adding a `webServer` block to `playwright.config.ts` so
 Playwright manages server lifecycle itself. Rejected for this change — it would alter a file
@@ -165,7 +175,7 @@ CI's only signal is pass/fail per stage, matching the user's explicit choice in 
 clarification round. `coverlet.collector` is already referenced in both backend test `.csproj`
 files but no coverage report/threshold step is added to CI by this change.
 
-## Risks / Trade-offs (updated during implementation)
+## Risks / Trade-offs
 
 - **[Risk, confirmed during implementation] A full sequential e2e run (all 8 spec files)
   deterministically exceeds the production auth rate limit (`RateLimiting:AuthEndpoints:
@@ -210,9 +220,6 @@ files but no coverage report/threshold step is added to CI by this change.
   just ET020's new file. Fixed locally by resetting their `PasswordHash` to a real
   application-generated BCrypt hash of `Password1`. This has no effect on CI (which seeds a fresh
   database with no pre-existing `Users` rows) and no effect on production data.
-
-## Risks / Trade-offs
-
 - **[Risk] SQL Server container startup time inside CI (image pull + engine init) adds several
   minutes per run.** → Mitigation: accept it for now (matches "no CD, verification only" non-goal);
   revisit with a cached/pre-warmed image only if CI time becomes a real bottleneck — not solved
@@ -268,10 +275,12 @@ pnpm e2e
 2. **`playwright.config.ts` `webServer` automation** — confirmed out of scope for this change (see
    Decision 3 alternative); should it be filed as a follow-up ticket/ADR now, or left implicit?
    Left implicit for now — not blocking ET020.
-3. **New reserved e2e seed rows** — the exact next `EmployeeNumber`s for
-   `e2e/08-dashboard-reports.spec.ts` can only be picked (and verified fresh) once implementation
-   starts and the dev DB is inspected directly, following the same manual-verification process
-   `expenseTestData.ts`'s comments describe for prior rows. Not resolvable at design time.
+3. **RESOLVED — New reserved e2e seed rows**: superseded during implementation. EMP021
+   Employee/EMP011 Manager/EMP003 Finance were identified as genuinely fresh via direct DB
+   inspection, but ultimately not used — `frontend/src/pages/DashboardPage.test.tsx` showed
+   dashboard assertions only check tile presence/absence, not exact counts, so account isolation
+   wasn't actually needed. `e2e/08-dashboard-reports.spec.ts` reuses the existing, already-vetted
+   `EXPENSE_E2E_*` constants instead (see Decision 2).
 4. **RESOLVED — CI-only SA password**: confirmed by user. Inline in the workflow YAML — it's
    ephemeral, per-run, protects nothing persistent, and is not a real credential per `CLAUDE.md`'s
    secret-handling rules.

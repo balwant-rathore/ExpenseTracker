@@ -127,13 +127,22 @@
 
 ## 6. Consistency Pass
 
-- [ ] 6.1 Re-trace every "handled identically" claim surfaced during the audit (e.g. "Submit
+- [x] 6.1 Re-trace every "handled identically" claim surfaced during the audit (e.g. "Submit
       re-runs the same checks as Create") side by side against the actual code, per `AGENTS.md`
-      §13 — don't rely on one instance standing in for the rest
-- [ ] 6.2 Confirm `docs/TRACEABILITY.md` has zero blank/TBD rows and every referenced test file
-      path is real
-- [ ] 6.3 Reconcile `design.md` against what was actually implemented (SDK pin, chosen e2e seed
-      rows, CI step order) and update it in this same change if anything drifted
+      §13 — don't rely on one instance standing in for the rest. Re-verified: Manager-reject and
+      Compliance-reject share the same `RejectExpenseRequestValidator` (not two implementations
+      that could silently diverge); FRS 7.1.4 and §10.1's "monthly report" are genuinely the same
+      single endpoint (`GET /api/reports/monthly-reimbursement`), not two parallel features
+- [x] 6.2 Confirm `docs/TRACEABILITY.md` has zero blank/TBD rows and every referenced test file
+      path is real — 0 `TBD` markers remain; every referenced `.cs`/`.ts`/`.tsx` basename verified
+      to exist in the repo (BR-10's row intentionally shows `—`/gap, flagged and tracked as ET021,
+      not an oversight)
+- [x] 6.3 Reconcile `design.md` against what was actually implemented (SDK pin, chosen e2e seed
+      rows, CI step order) and update it in this same change if anything drifted — merged a
+      duplicate "Risks / Trade-offs" heading, resolved the stale "new reserved seed rows" open
+      question (superseded — reused existing constants instead), added the pnpm version pin /
+      dotnet-ef tool install / removed-host-side-SQL-wait details to Decision 3, updated the e2e
+      file count (7→8)
 
 ## 7. Spec Scenario Verification
 
