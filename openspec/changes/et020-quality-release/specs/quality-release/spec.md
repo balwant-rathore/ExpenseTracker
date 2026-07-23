@@ -5,18 +5,25 @@ The repository SHALL contain `docs/TRACEABILITY.md`, a table mapping every numbe
 criterion in `docs/FRS.md` §3–§10 and every business rule `BR-01`–`BR-10` (§11) to the specific
 automated test file(s)/method(s) that verify it. Every row SHALL reference a test that actually
 exists in the repository at the layer assigned by `AGENTS.md` §10/`docs/SDS.md` §10.5 (business
-rules verified once on the backend; frontend tests verify UI behavior only).
+rules verified once on the backend; frontend tests verify UI behavior only) — **except** a row
+where the audit discovers the acceptance criterion or business rule is not actually implemented
+(a genuine functional gap, not merely an untested one). Per `AGENTS.md` §13 and this ticket's
+"verify and gate, don't alter behavior" scope, such a row SHALL instead explicitly document the
+gap and reference a tracked follow-up ticket, rather than silently patching production code or
+asserting a test against incorrect behavior.
 
 #### Scenario: Every acceptance criterion has a traceability row
 - **WHEN** `docs/TRACEABILITY.md` is checked against the full list of numbered acceptance criteria
   in `docs/FRS.md` §3–§10
 - **THEN** every acceptance criterion has at least one corresponding row naming a real test
-  file/method
+  file/method, or — for a genuine implementation gap found during the audit — a row documenting
+  the gap and a tracked follow-up ticket
 
 #### Scenario: Every business rule has a traceability row
 - **WHEN** `docs/TRACEABILITY.md` is checked against `BR-01` through `BR-10`
 - **THEN** every business rule has at least one corresponding row naming a real backend test
-  file/method (never a frontend-only test)
+  file/method (never a frontend-only test), or — for a genuine implementation gap found during
+  the audit — a row documenting the gap and a tracked follow-up ticket
 
 #### Scenario: Referenced test actually exists and passes
 - **WHEN** a traceability row names a test file and method
