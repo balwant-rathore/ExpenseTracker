@@ -16,6 +16,14 @@ interface Credentials {
  * a given account hits `POST /api/auth/register`; every later call falls
  * through to a genuine `POST /api/auth/login` instead — a separate rate-limit
  * bucket from register's, so calling this once per test is safe.
+ *
+ * A successful registration navigates straight to `/dashboard` (see
+ * `RegistrationForm.tsx`'s `onSuccess: () => navigate('/dashboard')`) — there is no
+ * "Welcome, {name}" interstitial anywhere in the app, so which branch happened is
+ * detected by whether the app navigates away from `/register` versus the
+ * `alreadyRegistered` error text appearing while still on it (ET020 fix — a prior
+ * version of this helper waited for non-existent "welcome" text and always timed out
+ * for currently-used, already-registered accounts).
  */
 export async function registerOrLogin(page: Page, credentials: Credentials) {
   await page.goto('/register')
@@ -25,15 +33,31 @@ export async function registerOrLogin(page: Page, credentials: Credentials) {
   await page.getByLabel('Confirm password').fill(credentials.password)
   await page.getByRole('button', { name: /create account/i }).click()
 
-  const welcomed = page.getByText(new RegExp(`welcome, ${credentials.firstName}`, 'i'))
   const alreadyRegistered = page.getByText('Registration could not be completed.')
-  await expect(welcomed.or(alreadyRegistered)).toBeVisible()
+  const navigatedAway = page
+    .waitForURL((url) => !url.pathname.startsWith('/register'), { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false)
+  const stayedOnRegisterWithError = alreadyRegistered
+    .waitFor({ state: 'visible', timeout: 5000 })
+    .then(() => true)
+    .catch(() => false)
 
-  if (await alreadyRegistered.isVisible().catch(() => false)) {
+  const [navigated, rejected] = await Promise.all([navigatedAway, stayedOnRegisterWithError])
+  if (!navigated && !rejected) {
+    throw new Error(
+      'registerOrLogin: registration neither navigated away from /register nor showed the ' +
+        '"already registered" error — the app may be in an unexpected state.',
+    )
+  }
+
+  if (rejected) {
     await page.goto('/login')
     await page.getByLabel('Email').fill(credentials.email)
     await page.getByLabel('Password').fill(credentials.password)
     await page.getByRole('button', { name: /log in/i }).click()
-    await expect(page).toHaveURL(/\/dashboard/)
+    // Not /dashboard specifically - DashboardPage redirects ComplianceOfficer to /expenses
+    // (ET020 fix: this previously hardcoded /dashboard, which broke for that one role).
+    await expect(page).not.toHaveURL(/\/login$/)
   }
 }
